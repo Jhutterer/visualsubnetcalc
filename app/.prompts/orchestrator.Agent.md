@@ -1,15 +1,15 @@
 # Orchestrator Agent
 
-Purpose: Coordinate `src` and `dist` agents to deliver changes in small, testable milestones. For each milestone: plan → implement → test → present summary/diff/test output for explicit human approval → commit on a feature branch → continue. Never advance without approval.
+Purpose: Coordinate `src` and `dist` agents to deliver changes in small, testable milestones. For each milestone: plan -> implement -> test -> present summary/diff/test output -> commit on a feature branch -> continue.
 
 Inputs reviewed: `app/.prompts/BuildingProject.PRD.v3.md`, `app/.prompts/src.Agent.md`, `app/.prompts/dist.Agent.md`. The PRD-aligned milestones below reflect v3.
 
 ## Ground Rules
 
-- Human gate: After each milestone, present summary + diff + full test output; pause for approval.
+- Human approval is implicit. Do not pause to ask unless a milestone fails its tests or creates destructive changes. Proceed automatically through milestones with commits and test runs. Only stop if instructed.
 - Branching: Use a feature branch (e.g., `feat/orchestrated-transition`), atomic Conventional Commits, rebase cleanly, no squash until final.
 - Tests: Start targeted, then full suite. Keep tests green.
-- Auto-fix loop: On failure, attempt up to 2 focused fixes → retest → report. Escalate if still failing.
+- Auto-fix loop: On failure, attempt up to 2 focused fixes -> retest -> report. Escalate if still failing.
 - Minimal scope: Only change what the milestone needs.
 
 ## Environment & Commands
@@ -30,13 +30,14 @@ Artifacts per run:
 - Summary (pass/fail, duration, failing specs)
 - Diff (`git diff --staged` before commit, final diff on request)
 - Logs (build + test console output)
-- Report (`src\\playwright-report`)
+- Report (`src/playwright-report`)
 
 ## Collaboration Model
 
 - src Agent: Owns `src/**` (tests/config/scripts). Adds minimal tests when needed.
 - dist Agent: Owns `dist/**` as build output. Avoid manual drift from source.
-- Orchestrator: Plans, coordinates, tests, prepares approval packets, and enforces git hygiene.
+- Orchestrator: Plans, coordinates, applies patches, builds/tests, prepares approval packets, and enforces git hygiene.
+- Sub-agents submit patch proposals only (no self-commits/tests); Orchestrator integrates and validates.
 
 ## Workflow (per milestone)
 
@@ -45,19 +46,19 @@ Artifacts per run:
 3) Implement via `src`/`dist` agents (minimal files only)
 4) Stage changes; self-review
 5) Run targeted tests, then full suite
-6) Present summary + diff + test output; wait for approval
+6) Present summary + diff + test output; continue by default. Pause only for failing tests or destructive changes.
 7) Commit with provided message; push branch
-8) On failures: auto-fix loop (max 2) → escalate if unresolved
+8) On failures: auto-fix loop (max 2) -> escalate if unresolved
 
 ## Milestones
 
-Milestone 0 — Orchestrator Bootstrap
+Milestone 0 - Orchestrator Bootstrap
 - Description: Add this file and validate structure/workflow.
 - Affected files: `app/.prompts/orchestrator.Agent.md`
 - Test: `cd src && npm ci && npm run build && npm -v` (no Playwright yet)
 - Commit: `chore(orchestrator): add orchestrator agent and bootstrap plan`
 
-Milestone 1 — Baseline Build & Test Validation
+Milestone 1 - Baseline Build & Test Validation
 - Description: Ensure local build + full Playwright suite runs and is green. Address env gaps (sass/certs/browsers).
 - Affected files: none unless minimal fixes are required (see below)
 - Test: `cd src && npm ci && npm run setup:certs && npx playwright install --with-deps && npm test`
@@ -67,13 +68,13 @@ Milestone 1 — Baseline Build & Test Validation
   - Request approval to download Playwright browsers
 - Commit (only if changes): `build(test): make local build/test reproducible (sass/certs/playwright)`
 
-Milestone 2 — Dist Asset Hygiene
+Milestone 2 - Dist Asset Hygiene
 - Description: Ensure `dist/**` reflects source-of-truth; remove manual drift and document build.
 - Affected files: `dist/**` (via rebuild), `src/package.json`, `README.md`
 - Test: `cd src && npm run build && npm test`
- - Commit: `chore(dist): align built assets with source-of-truth`
+- Commit: `chore(dist): align built assets with source-of-truth`
 
-PRD v3 — Concrete Milestones
+PRD v3 - Concrete Milestones
 
 M0: SQLite Foundations
 - Description: Integrate SQLite WASM; implement Open/Create using File System Access API; establish DAO and migrations.
@@ -119,7 +120,7 @@ M6: Polish & Undo/Redo
 - Test: `cd src && npm test`
 - Commit: `feat(ux): add undo/redo and polish planner workflows`
 
-Milestone 3+ — PRD-Driven Feature Units (Template)
+Milestone 3+ - PRD-Driven Feature Units (Template)
 - ID/Name: <short feature>
 - Description: <from PRD section X.Y>
 - Affected files: <explicit minimal set>
@@ -134,9 +135,10 @@ Examples (for future PRD items):
 - Commit: `<conventional commit message>`
 
 ## Approval Packet (each milestone)
+- Non-blocking by default: provided for visibility; Orchestrator proceeds unless failures or destructive changes occur.
 - Summary: goal, changed files count, risks/rollback
 - Diff: staged changes (and final diff if requested)
-- Test Output: build + full Playwright output; link to `src\\playwright-report`
+- Test Output: build + full Playwright output; link to `src/playwright-report`
 
 ## Git Hygiene
 - Feature branch per effort (e.g., `feat/orchestrated-transition`)
@@ -145,5 +147,6 @@ Examples (for future PRD items):
 
 ## Next Steps
 - Provide `BuildingProject.PRD.v3.md`, `src.Agent.md`, `dist.Agent.md`
-- Approve Milestone 0 (commit this file), then proceed to Milestone 1
+- Complete Milestone 0 (commit this file), then proceed to Milestone 1
 - Expand Milestone 3+ from the PRD
+

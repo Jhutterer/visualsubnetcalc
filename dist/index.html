@@ -58,6 +58,42 @@
         <p class="mb-0">Enter the network you wish to subnet and use the Split/Join buttons on the right to start designing!</p>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+
+    <section id="database-panel" class="mb-4" aria-label="Planner database manager">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Planner Database</h2>
+                <p id="db-feedback" class="small text-muted mb-2"></p>
+                <p data-testid="db-status" class="fw-semibold">No planner database loaded</p>
+                <div class="btn-toolbar gap-2 flex-wrap" role="toolbar" aria-label="Database controls">
+                    <button class="btn btn-primary" id="db-create-btn" type="button">Create Planner DB</button>
+                    <button class="btn btn-outline-secondary" id="db-open-btn" type="button">Open Planner DB</button>
+                    <button class="btn btn-outline-secondary" id="db-save-btn" type="button" disabled>Save Planner DB</button>
+                    <button class="btn btn-outline-secondary" id="db-export-btn" type="button" disabled>Download Copy (.sqlite)</button>
+                    <button class="btn btn-outline-secondary" id="db-insert-sample-btn" type="button" disabled>Insert Sample Building</button>
+                </div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm align-middle mb-0" id="db-buildings-table" aria-label="Database buildings">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Slug</th>
+                                <th scope="col">Mailing Address</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="4">No planner database loaded</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <input type="file" class="visually-hidden" id="db-file-input" accept=".sqlite,.db,.db3" />
+            </div>
+        </div>
+    </section>
+
     <form id="input_form" class="row g-2 mb-3">
         <div class="font-monospace col-lg-2 col-md-3 col-4">
             <div><label for="network" class="form-label mb-0 ms-1">Network Address</label></div>
@@ -219,7 +255,7 @@
                     <p>Subnetting improves network performance and speed by reducing unnecessary broadcast traffic, ensuring data packets remain within their designated subnet. It significantly reduces network congestion, as routers only forward traffic intended for devices within specific subnets. Subnetting also enhances network security by controlling device access to sensitive resources, making it easier to identify and isolate threats.</p>
                     <p>It simplifies network management and supports future growth, allowing administrators to efficiently allocate IP addresses and configure subnets based on organizational needs. Overall, subnetting provides greater visibility, control, and scalability, essential for robust network operation in any sizeable organization.</p>
                     <h4>How does subnetting work?</h4>
-                    <p>Subnetting works by dividing an IP address into two segments: the network portion, which identifies the overall network, and the host portion, which identifies individual devices within that network. Using a subnet mask, administrators indicate exactly which bits belong to each part, and with CIDR (Classless Inter-Domain Routing) this division is expressed as a “slash number” appended to the IP address (for example, /24). This slash number indicates the number of bits reserved for the network ID; the remaining bits define the host addresses available within the subnet.</p>
+                    <p>Subnetting works by dividing an IP address into two segments: the network portion, which identifies the overall network, and the host portion, which identifies individual devices within that network. Using a subnet mask, administrators indicate exactly which bits belong to each part, and with CIDR (Classless Inter-Domain Routing) this division is expressed as a ???slash number??? appended to the IP address (for example, /24). This slash number indicates the number of bits reserved for the network ID; the remaining bits define the host addresses available within the subnet.</p>
                     <p>As you increase the slash number, more bits shift to form the network ID, resulting in smaller, more tightly scoped subnets with fewer host addresses, while decreasing the slash number provides a larger pool of addresses for hosts. This flexible method allows for optimal allocation of IP addresses tailored to the size and security requirements of each network segment.</p>
                     <h4>How does the Visual Subnet Calculator help me?</h4>
                     <p>Visual Subnet Calculator helps network professionals simplify and expedite the design process by transforming complex subnet calculations into intuitive, visual layouts. It supports various networking modes (including standard, AWS, and Azure) by automatically accounting for reserved addresses, so you can design with confidence whether planning small subnets or complex architectures. Its clear, user-focused interface, rooted in simplicity and ease-of-use, means even first-time users can quickly lay out and adjust network designs without getting bogged down in intricate math.</p>
@@ -283,8 +319,13 @@
     <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.21.0/dist/additional-methods.min.js"
             integrity="sha384-YJxXUyJ0BogsbWMDJj4h3uJVyImZsAI6qh7MG2LGgxMstOXB8G1mNwaRuL4A6VYb"
             crossorigin="anonymous"></script>
+    <script src="js/sqlite3.js"></script>
+    <script src="js/planner-db.js"></script>
     <script src="js/lz-string.min.js"></script>
     <script src="js/main.js"></script>
 </div>
 </body>
 </html>
+
+
+

@@ -7,7 +7,8 @@
   "scripts": {
     "postinstall": "npm install -g sass@1.77.6",
     "build": "sass --style compressed scss/custom.scss:../dist/css/bootstrap.min.css && copy node_modules\\lz-string\\libs\\lz-string.min.js ..\\dist\\js\\lz-string.min.js",
-    "test": "npx playwright test",
+    "test": "node scripts/run-playwright-with-summary.mjs",
+    "test:ci": "node scripts/run-playwright-with-summary.mjs",
     "setup:certs": "node scripts/setup-certs.mjs",
     "start": "node node_modules/http-server/bin/http-server ../dist -c-1",
     "local-secure-start": "node node_modules/http-server/bin/http-server ../dist -c-1 -C certs/cert.pem -K certs/cert.key -S -p 8443"

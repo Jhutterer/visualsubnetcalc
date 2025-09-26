@@ -1,0 +1,1 @@
+SQLite is in the public domain. Source release: sqlite-wasm-3450200 (https://www.sqlite.org).

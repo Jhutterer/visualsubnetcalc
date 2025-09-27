@@ -2,6 +2,12 @@ let subnetMap = {};
 let subnetNotes = {};
 let maxNetSize = 0;
 let infoColumnCount = 5
+let isHydratingFromSnapshot = false;
+let plannerSnapshotPersistPending = false;
+
+if (typeof window !== 'undefined') {
+    window.subnetMap = subnetMap;
+}
 // NORMAL mode:
 //   - Smallest subnet: /32
 //   - Two reserved addresses per subnet of size <= 30:
@@ -189,6 +195,7 @@ function reset() {
         // This page already has data imported, so lets see if we can just change the range
         if (isMatchingSize(Object.keys(subnetMap)[0], cidrInput)) {
             subnetMap = changeBaseNetwork(cidrInput)
+            if (typeof window !== 'undefined') { window.subnetMap = subnetMap; }
         } else {
             // This is a page with existing data of a different subnet size, so make it blank
             // Could be an opportunity here to do the following:
@@ -199,6 +206,7 @@ function reset() {
             //     base network going from /16 -> /18 would be all containing networks would be resized smaller (/+2),
             //     or bigger (/-2) if going from /18 -> /16.
             subnetMap = {}
+            if (typeof window !== 'undefined') { window.subnetMap = subnetMap; }
             subnetMap[rootCidr] = {}
         }
     } else {
@@ -207,6 +215,9 @@ function reset() {
     }
     maxNetSize = parseInt($('#netsize').val())
     renderTable(operatingMode);
+    if (!isHydratingFromSnapshot) {
+        schedulePlannerSnapshotPersist();
+    }
 }
 
 function changeBaseNetwork(newBaseNetwork) {
@@ -246,11 +257,55 @@ $('#calcbody').on('focusout', 'td.note input', function(event) {
 })
 
 
-function renderTable(operatingMode) {
-    // TODO: Validation Code
+function renderTableFromTree(subnetTree, operatingMode) {
+    const tree = subnetTree && typeof subnetTree === 'object' ? subnetTree : {};
     $('#calcbody').empty();
-    let maxDepth = get_dict_max_depth(subnetMap, 0)
-    addRowTree(subnetMap, 0, maxDepth, operatingMode)
+    const maxDepth = get_dict_max_depth(tree, 0);
+    addRowTree(tree, 0, maxDepth, operatingMode);
+}
+
+let plannerRenderRequestId = 0;
+function renderTable(operatingMode, options = {}) {
+    const preferDatabase = options.preferDatabase !== false;
+    const fallbackTree = options.tree || subnetMap || {};
+    renderTableFromTree(fallbackTree, operatingMode);
+    if (!preferDatabase) {
+        return;
+    }
+    const manager = typeof window !== 'undefined' ? window.plannerDbManager : null;
+    if (!manager || typeof manager.loadPlannerSnapshot !== 'function' || !manager.hasDatabase || !manager.hasDatabase()) {
+        return;
+    }
+    const currentRequest = ++plannerRenderRequestId;
+    manager.loadPlannerSnapshot().then((snapshot) => {
+        if (currentRequest !== plannerRenderRequestId) {
+            return;
+        }
+        if (!snapshot || !Array.isArray(snapshot.tree)) {
+            return;
+        }
+        const treeMap = snapshotTreeToMap(snapshot.tree);
+        subnetMap = treeMap;
+        if (typeof window !== 'undefined') {
+            window.subnetMap = subnetMap;
+        }
+        if (snapshot.baseNetwork && typeof snapshot.baseNetwork === 'string' && snapshot.baseNetwork.includes('/')) {
+            const split = snapshot.baseNetwork.split('/');
+            const networkPart = split[0];
+            const maskPart = split[1];
+            if (networkPart && maskPart) {
+                $('#network').val(networkPart);
+                $('#netsize').val(maskPart);
+                const parsed = parseInt(maskPart, 10);
+                if (!Number.isNaN(parsed)) {
+                    maxNetSize = parsed;
+                }
+            }
+        }
+        renderTableFromTree(treeMap, operatingMode);
+    }).catch((err) => {
+        console.warn('Planner DB render failed', err);
+    });
 }
 
 function addRowTree(subnetTree, depth, maxDepth, operatingMode) {
@@ -581,12 +636,12 @@ function split_network(networkInput, netSize) {
     return subnets;
 }
 
-function mutate_subnet_map(verb, network, subnetTree, propValue = '') {
+function mutate_subnet_map(verb, network, subnetTree, propValue = '', isNested = false) {
     if (subnetTree === '') { subnetTree = subnetMap }
     for (let mapKey in subnetTree) {
         if (mapKey.startsWith('_')) { continue; }
         if (has_network_sub_keys(subnetTree[mapKey])) {
-            mutate_subnet_map(verb, network, subnetTree[mapKey], propValue)
+            mutate_subnet_map(verb, network, subnetTree[mapKey], propValue, true)
         }
         if (mapKey === network) {
             let netSplit = mapKey.split('/')
@@ -646,6 +701,10 @@ function mutate_subnet_map(verb, network, subnetTree, propValue = '') {
             }
         }
     }
+    if (!isNested && !isHydratingFromSnapshot) {
+        schedulePlannerSnapshotPersist();
+    }
+
 }
 
 function switchMode(operatingMode) {
@@ -714,10 +773,23 @@ function switchMode(operatingMode) {
         reset();
     }
 
+    if (isSwitched && !isHydratingFromSnapshot) {
+
+        schedulePlannerSnapshotPersist();
+
+    }
+
+
+
     return isSwitched;
 
 
+
+
+
 }
+
+
 
 function validateSubnetSizes(subnetMap, minSubnetSize) {
     let isValid = true;
@@ -831,6 +903,7 @@ function exportConfig(isMinified = true) {
     const baseNetwork = Object.keys(subnetMap)[0]
     let miniSubnetMap = {};
     subnetMap = sortIPCIDRs(subnetMap)
+    if (typeof window !== 'undefined') { window.subnetMap = subnetMap; }
     if (isMinified) {
         minifySubnetMap(miniSubnetMap, subnetMap, baseNetwork)
     }
@@ -971,10 +1044,511 @@ function importConfig(text) {
     $('#netsize').val(subnetSize)
     maxNetSize = subnetSize
     subnetMap = sortIPCIDRs(text['subnets']);
+    if (typeof window !== 'undefined') { window.subnetMap = subnetMap; }
     operatingMode = text['operating_mode'] || 'Standard'
     switchMode(operatingMode);
 
 }
+
+function compareCidrs(a, b) {
+
+    if (!a || !b) {
+
+        return 0;
+
+    }
+
+    const parts = a.split('/');
+
+    const otherParts = b.split('/');
+
+    const maskA = parts.length > 1 ? parts[1] : '0';
+
+    const maskB = otherParts.length > 1 ? otherParts[1] : '0';
+
+    const ipCompare = compareIpStrings(parts[0], otherParts[0]);
+
+    if (ipCompare !== 0) {
+
+        return ipCompare;
+
+    }
+
+    return parseInt(maskA, 10) - parseInt(maskB, 10);
+
+}
+
+
+
+function compareIpStrings(ipA, ipB) {
+
+    const partsA = (ipA || '').split('.').map((part) => parseInt(part, 10) || 0);
+
+    const partsB = (ipB || '').split('.').map((part) => parseInt(part, 10) || 0);
+
+    for (let i = 0; i < 4; i++) {
+
+        const diff = partsA[i] - partsB[i];
+
+        if (diff !== 0) {
+
+            return diff;
+
+        }
+
+    }
+
+    return 0;
+
+}
+
+
+
+function mapToSnapshotNodes(map) {
+
+    if (!map || typeof map !== 'object') {
+
+        return [];
+
+    }
+
+    const keys = Object.keys(map)
+
+        .filter((key) => !key.startsWith('_'))
+
+        .sort(compareCidrs);
+
+    return keys.map((key, index) => {
+
+        const entry = map[key] || {};
+
+        const children = mapToSnapshotNodes(entry);
+
+        return {
+
+            cidr: key,
+
+            note: typeof entry._note === 'string' ? entry._note : '',
+
+            color: typeof entry._color === 'string' ? entry._color : '',
+
+            ordinal: index,
+
+            children,
+
+        };
+
+    });
+
+}
+
+
+
+function buildSnapshotFromCurrentState() {
+
+    const tree = mapToSnapshotNodes(subnetMap);
+
+    const networkValue = $('#network').val();
+
+    const sizeValue = $('#netsize').val();
+
+    let baseNetwork = '';
+
+    if (typeof networkValue === 'string' && networkValue && typeof sizeValue === 'string' && sizeValue) {
+
+        baseNetwork = networkValue + '/' + sizeValue;
+
+    } else if (tree.length > 0) {
+
+        baseNetwork = tree[0].cidr;
+
+    }
+
+    return {
+
+        baseNetwork,
+
+        operatingMode,
+
+        tree,
+
+    };
+
+}
+
+
+
+function snapshotTreeToMap(nodes) {
+
+    const result = {};
+
+    if (!Array.isArray(nodes)) {
+
+        return result;
+
+    }
+
+    nodes.forEach((node) => {
+
+        if (!node || typeof node.cidr !== 'string' || node.cidr.length === 0) {
+
+            return;
+
+        }
+
+        const branch = snapshotTreeToMap(node.children || []);
+
+        if (node.note) {
+
+            branch._note = node.note;
+
+        }
+
+        if (node.color) {
+
+            branch._color = node.color;
+
+        }
+
+        result[node.cidr] = branch;
+
+    });
+
+    return sortIPCIDRs(result);
+
+}
+
+
+
+function schedulePlannerSnapshotPersist() {
+
+    if (plannerSnapshotPersistPending) {
+
+        return;
+
+    }
+
+    plannerSnapshotPersistPending = true;
+
+    const run = async () => {
+
+        try {
+
+            await persistPlannerSnapshot();
+
+        } catch (err) {
+
+            console.warn('Planner snapshot scheduling failed', err);
+
+        } finally {
+
+            plannerSnapshotPersistPending = false;
+
+        }
+
+    };
+
+    if (typeof queueMicrotask === 'function') {
+
+        queueMicrotask(() => {
+
+            void run();
+
+        });
+
+    } else {
+
+        setTimeout(() => {
+
+            void run();
+
+        }, 0);
+
+    }
+
+}
+
+
+
+async function refreshPlannerViewFromDb(manager) {
+
+    const resolvedManager = manager || window.plannerDbManager;
+
+    if (!resolvedManager || typeof resolvedManager.loadPlannerSnapshot !== 'function' || !resolvedManager.hasDatabase || !resolvedManager.hasDatabase()) {
+
+        return false;
+
+    }
+
+    try {
+
+        const snapshot = await resolvedManager.loadPlannerSnapshot();
+
+        if (snapshot && Array.isArray(snapshot.tree)) {
+
+            return hydratePlannerFromSnapshot(snapshot);
+
+        }
+
+    } catch (err) {
+
+        console.warn('Planner snapshot refresh failed', err);
+
+    }
+
+    return false;
+
+}
+
+
+
+async function persistPlannerSnapshot() {
+
+    if (isHydratingFromSnapshot) {
+
+        return;
+
+    }
+
+    let manager = window.plannerDbManager;
+
+    if (!manager) {
+
+        manager = await waitForPlannerDbManager();
+
+    }
+
+    if (!manager || typeof manager.savePlannerSnapshot !== 'function' || !manager.hasDatabase || !manager.hasDatabase()) {
+
+        return;
+
+    }
+
+    const snapshot = buildSnapshotFromCurrentState();
+
+    try {
+
+        await manager.savePlannerSnapshot(snapshot);
+
+        await refreshPlannerViewFromDb(manager);
+
+    } catch (err) {
+
+        console.warn('Planner snapshot save failed', err);
+
+    }
+
+}
+
+
+
+function waitForPlannerDbManager(timeoutMs = 2000) {
+
+    if (typeof window !== 'undefined' && window.plannerDbManager) {
+
+        return Promise.resolve(window.plannerDbManager);
+
+    }
+
+    return new Promise((resolve) => {
+
+        const step = 50;
+
+        let elapsed = 0;
+
+        const timer = setInterval(() => {
+
+            if (typeof window !== 'undefined' && window.plannerDbManager) {
+
+                clearInterval(timer);
+
+                resolve(window.plannerDbManager);
+
+                return;
+
+            }
+
+            elapsed += step;
+
+            if (elapsed >= timeoutMs) {
+
+                clearInterval(timer);
+
+                resolve(null);
+
+            }
+
+        }, step);
+
+    });
+
+}
+
+
+
+async function bootstrapPlannerFromDb() {
+
+    const manager = await waitForPlannerDbManager();
+
+    if (!manager) {
+
+        return false;
+
+    }
+
+    try {
+
+        if (typeof manager.ensureReady === 'function') {
+
+            await manager.ensureReady();
+
+        }
+
+    } catch (err) {
+
+        console.warn('Planner DB ensureReady failed', err);
+
+        return false;
+
+    }
+
+    if (typeof manager.hasDatabase === 'function' && !manager.hasDatabase()) {
+
+        return false;
+
+    }
+
+    try {
+
+        const snapshot = await manager.loadPlannerSnapshot();
+
+        if (!snapshot || !Array.isArray(snapshot.tree) || snapshot.tree.length === 0) {
+
+            return false;
+
+        }
+
+        return hydratePlannerFromSnapshot(snapshot);
+
+    } catch (err) {
+
+        console.warn('Planner DB bootstrap failed', err);
+
+        return false;
+
+    }
+
+}
+
+
+
+function hydratePlannerFromSnapshot(snapshot) {
+
+    const tree = Array.isArray(snapshot && snapshot.tree) ? snapshot.tree : [];
+
+    const hasBaseNetwork = snapshot && typeof snapshot.baseNetwork === 'string' && snapshot.baseNetwork.includes('/');
+
+    const baseCandidate = hasBaseNetwork
+
+        ? snapshot.baseNetwork
+
+        : ((tree[0] && typeof tree[0].cidr === 'string') ? tree[0].cidr : '');
+
+    if (!baseCandidate || !baseCandidate.includes('/')) {
+
+        return false;
+
+    }
+
+    const [networkPart, maskPart] = baseCandidate.split('/');
+
+    isHydratingFromSnapshot = true;
+
+    try {
+
+        $('#network').val(networkPart);
+
+        $('#netsize').val(maskPart);
+
+        maxNetSize = parseInt(maskPart, 10);
+
+        subnetMap = snapshotTreeToMap(tree);
+
+        if (typeof window !== 'undefined') {
+
+            window.subnetMap = subnetMap;
+
+        }
+
+        const hasOperatingMode = snapshot && typeof snapshot.operatingMode === 'string' && snapshot.operatingMode.length;
+
+        const nextMode = hasOperatingMode ? snapshot.operatingMode : 'Standard';
+
+        operatingMode = nextMode;
+
+        previousOperatingMode = nextMode;
+
+        const switched = switchMode(operatingMode);
+
+        if (!switched) {
+
+            renderTable(operatingMode);
+
+        }
+
+        return true;
+
+    } finally {
+
+        isHydratingFromSnapshot = false;
+
+    }
+
+}
+
+
+
+if (typeof window !== 'undefined') {
+
+    window.waitForPlannerDbManager = waitForPlannerDbManager;
+
+    window.bootstrapPlannerFromDb = bootstrapPlannerFromDb;
+
+    window.persistPlannerSnapshot = persistPlannerSnapshot;
+
+    window.refreshPlannerViewFromDb = refreshPlannerViewFromDb;
+
+    window.hydratePlannerFromSnapshot = hydratePlannerFromSnapshot;
+
+    window.addEventListener('planner-db:opened', () => {
+
+        bootstrapPlannerFromDb().catch((err) => {
+
+            console.warn('Planner snapshot hydration failed', err);
+
+        });
+
+    });
+
+    waitForPlannerDbManager().then((manager) => {
+
+        if (manager && typeof manager.hasDatabase === 'function' && manager.hasDatabase()) {
+
+            return bootstrapPlannerFromDb();
+
+        }
+
+        return false;
+
+    }).catch((err) => {
+
+        console.warn('Planner DB manager wait failed', err);
+
+    });
+
+}
+
+
 
 function sortIPCIDRs(obj) {
   // Base case: if the value is an empty object, return it

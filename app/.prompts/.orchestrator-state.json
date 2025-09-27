@@ -1,214 +1,185 @@
 {
-    "branch":  "feat/orchestrated-transition",
-    "lastMilestone":  "M1: Replace In-Memory State with DB",
-    "lastStep":  "Connected planner UI mutations to SQLite snapshots and rehydrated calculator view through bootstrap",
-    "checklist":  [
-                      {
-                          "id":  "M0",
-                          "name":  "SQLite Foundations",
-                          "status":  "Done",
-                          "evidence":  [
-                                           {
-                                               "path":  "dist/js/planner-db.js:1",
-                                               "note":  "PlannerDbManager integrates File System Access create/open/save with sqlite3_deserialize import and auto-save after DAO writes/migrations"
-                                           },
-                                           {
-                                               "path":  "dist/index.html:69",
-                                               "note":  "Planner DB controls expose Create/Open/Save/Download flows"
-                                           },
-                                           {
-                                               "path":  "src/tests/planner-basics.spec.ts:1",
-                                               "note":  "Playwright spec asserts DB readiness, capability probe, and Save button presence"
-                                           },
-                                           {
-                                               "path":  "dist/js/planner-db.js:935",
-                                               "note":  "Save button handler persists File System Access handles and reports status"
-                                           }
-                                       ],
-                          "gaps":  [
-                                       "Planner calculator UI still uses legacy in-memory state; integration deferred to M1"
-                                   ],
-                          "tests":  [
-                                        {
-                                            "path":  "src/tests/planner-basics.spec.ts",
-                                            "status":  "Passing",
-                                            "note":  "npm test -- tests/planner-basics.spec.ts"
-                                        }
-                                    ],
-                          "risks":  [
-                                        "Auto-save best-effort; File System Access prompts depend on browser support"
-                                    ]
-                      },
-                      {
-                          "id":  "M1",
-                          "name":  "Replace In-Memory State with DB",
-                          "status":  "In Progress",
-                          "evidence":  [
-                                           {
-                                               "path":  "dist/js/main.js:1",
-                                               "note":  "Calculator logic still uses global JS maps"
-                                           },
-                                           {
-                                               "path":  "src/tests/deep-functional.spec.ts:9",
-                                               "note":  "Functional tests remain URL/state centric"
-                                           },
-                                           {
-                                               "path":  "dist/js/planner-db.js:141",
-                                               "note":  "Migration v2 adds planner_state and planner_subnet tables for snapshot storage"
-                                           },
-                                           {
-                                               "path":  "dist/js/planner-db.js:942",
-                                               "note":  "PlannerDbManager.savePlannerSnapshot/loadPlannerSnapshot persist subnet hierarchy via SQLite"
-                                           },
-                                           {
-                                               "path":  "src/tests/planner-snapshot.spec.ts:1",
-                                               "note":  "Playwright spec verifies save/load snapshot flow and ordinals"
-                                           },
-                                           {
-                                               "path":  "dist/js/main.js:3355",
-                                               "note":  "Planner auto-save helper schedules snapshot persistence after UI mutations"
-                                           },
-                                           {
-                                               "path":  "dist/js/main.js:16865",
-                                               "note":  "Switching operating mode now persists state to the database"
-                                           },
-                                           {
-                                               "path":  "dist/js/main.js:3955",
-                                               "note":  "Note edits trigger immediate DAO save via change handler and debounce adjustments"
-                                           }
-                                       ],
-                          "gaps":  [
-                                       "Need to replace render pipeline with DAO query results to remove legacy subnetMap reads."
-                                   ],
-                          "tests":  [
-                                        {
-                                            "path":  "src/tests/planner-snapshot.spec.ts",
-                                            "status":  "Passing",
-                                            "note":  "npm test -- tests/planner-snapshot.spec.ts"
-                                        },
-                                        {
-                                            "path":  "src",
-                                            "status":  "Passing",
-                                            "note":  "npm test"
-                                        }
-                                    ]
-                      },
-                      {
-                          "id":  "M2",
-                          "name":  "Subnets + VLAN/Gateway/VRF/Purpose",
-                          "status":  "Not Started",
-                          "evidence":  [
-                                           {
-                                               "path":  "app/plannerSchema.sql:33",
-                                               "note":  "Schema scaffolding present"
-                                           }
-                                       ],
-                          "gaps":  [
-                                       "UI logic still uses legacy data structures; constraints not yet enforced"
-                                   ],
-                          "tests":  [
-
-                                    ]
-                      },
-                      {
-                          "id":  "M3",
-                          "name":  "Interface Assignment (+MGMT, +INTERCONNECT, +Loopbacks)",
-                          "status":  "Not Started",
-                          "evidence":  [
-                                           {
-                                               "path":  "app/plannerSchema.sql:53",
-                                               "note":  "Interface table defined but unused"
-                                           }
-                                       ],
-                          "gaps":  [
-                                       "Assignment UI and validation pending"
-                                   ],
-                          "tests":  [
-
-                                    ]
-                      },
-                      {
-                          "id":  "M4",
-                          "name":  "Save/Load \u0026 XML Export",
-                          "status":  "Not Started",
-                          "evidence":  [
-                                           {
-                                               "path":  "dist/index.html:147",
-                                               "note":  "Legacy JSON modal persists"
-                                           },
-                                           {
-                                               "path":  "src/tests/import-export.spec.ts:3",
-                                               "note":  "Tests still exercise JSON flows"
-                                           }
-                                       ],
-                          "gaps":  [
-                                       "Need full Save/Load controls and XML exporter"
-                                   ],
-                          "tests":  [
-
-                                    ]
-                      },
-                      {
-                          "id":  "M5",
-                          "name":  "Remove URL Sharing",
-                          "status":  "Not Started",
-                          "evidence":  [
-                                           {
-                                               "path":  "dist/index.html:196",
-                                               "note":  "Copy Shareable URL control remains"
-                                           },
-                                           {
-                                               "path":  "src/tests/url-sharing.spec.ts:16",
-                                               "note":  "Tests still validate legacy URL serialization"
-                                           },
-                                           {
-                                               "path":  "src/package.json:6",
-                                               "note":  "lz-string still copied into dist"
-                                           }
-                                       ],
-                          "gaps":  [
-                                       "Need to eliminate URL-based persistence and adjust docs/tests"
-                                   ],
-                          "tests":  [
-
-                                    ]
-                      },
-                      {
-                          "id":  "M6",
-                          "name":  "Polish \u0026 Undo/Redo",
-                          "status":  "Not Started",
-                          "evidence":  [
-
-                                       ],
-                          "gaps":  [
-                                       "Undo/redo stack and UX polish pending"
-                                   ],
-                          "tests":  [
-
-                                    ]
-                      }
-                  ],
-    "retries":  {
-                    "npmTest":  10
+    "branch": "feat/orchestrated-transition",
+    "lastMilestone": "M1: Replace In-Memory State with DB",
+    "lastStep": "Render pipeline now hydrates from SQLite snapshots and full Playwright suite is green",
+    "checklist": [
+        {
+            "id": "M0",
+            "name": "SQLite Foundations",
+            "status": "Done",
+            "evidence": [
+                {
+                    "path": "dist/js/planner-db.js:1",
+                    "note": "PlannerDbManager integrates File System Access create/open/save with sqlite3_deserialize import and auto-save after DAO writes/migrations"
                 },
-    "envProbes":  {
-                      "npmCi":  {
-                                    "status":  "passed"
-                                },
-                      "npmRunBuild":  {
-                                          "status":  "passed"
-                                      },
-                      "npmRunSetupCerts":  {
-                                               "status":  "passed",
-                                               "note":  "Self-signed cert generated"
-                                           },
-                      "npxPlaywrightInstall":  {
-                                                   "status":  "passed"
-                                               },
-                      "npmTest":  {
-                                      "status":  "passed",
-                                      "results":  "src/test-results/results.json"
-                                  }
-                  },
-    "timestamp":  "2025-09-26T14:13:05.8501326Z"
+                {
+                    "path": "dist/index.html:69",
+                    "note": "Planner DB controls expose Create/Open/Save/Download flows"
+                },
+                {
+                    "path": "src/tests/planner-basics.spec.ts:1",
+                    "note": "Playwright spec asserts DB readiness, capability probe, and Save button presence"
+                },
+                {
+                    "path": "dist/js/planner-db.js:935",
+                    "note": "Save button handler persists File System Access handles and reports status"
+                }
+            ],
+            "gaps": [],
+            "tests": [
+                {
+                    "path": "src/tests/planner-basics.spec.ts",
+                    "status": "Passing",
+                    "note": "npm test -- tests/planner-basics.spec.ts"
+                }
+            ],
+            "risks": [
+                "Auto-save best-effort; File System Access prompts depend on browser support"
+            ]
+        },
+        {
+            "id": "M1",
+            "name": "Replace In-Memory State with DB",
+            "status": "Done",
+            "evidence": [
+                {
+                    "path": "dist/js/main.js:260",
+                    "note": "renderTable now hydrates from PlannerDbManager snapshot before drawing"
+                },
+                {
+                    "path": "dist/js/main.js:1179",
+                    "note": "Debounced scheduler persists planner snapshot only when safe"
+                },
+                {
+                    "path": "dist/js/main.js:1305",
+                    "note": "persistPlannerSnapshot reloads from SQLite after saving"
+                },
+                {
+                    "path": "dist/js/main.js:1445",
+                    "note": "hydratePlannerFromSnapshot syncs inputs and state from database"
+                }
+            ],
+            "gaps": [],
+            "tests": [
+                {
+                    "path": "src/tests/planner-basics.spec.ts",
+                    "status": "Passing",
+                    "note": "npm test -- tests/planner-basics.spec.ts tests/planner-snapshot.spec.ts"
+                },
+                {
+                    "path": "src",
+                    "status": "Passing",
+                    "note": "npm test"
+                }
+            ],
+            "risks": [
+                "Async render now depends on PlannerDbManager.loadPlannerSnapshot latency"
+            ]
+        },
+        {
+            "id": "M2",
+            "name": "Subnets + VLAN/Gateway/VRF/Purpose",
+            "status": "Not Started",
+            "evidence": [
+                {
+                    "path": "app/plannerSchema.sql:33",
+                    "note": "Schema scaffolding present"
+                }
+            ],
+            "gaps": [
+                "UI logic still uses legacy data structures; constraints not yet enforced"
+            ],
+            "tests": []
+        },
+        {
+            "id": "M3",
+            "name": "Interface Assignment (+MGMT, +INTERCONNECT, +Loopbacks)",
+            "status": "Not Started",
+            "evidence": [
+                {
+                    "path": "app/plannerSchema.sql:53",
+                    "note": "Interface table defined but unused"
+                }
+            ],
+            "gaps": [
+                "Assignment UI and validation pending"
+            ],
+            "tests": []
+        },
+        {
+            "id": "M4",
+            "name": "Save/Load & XML Export",
+            "status": "Not Started",
+            "evidence": [
+                {
+                    "path": "dist/index.html:147",
+                    "note": "Legacy JSON modal persists"
+                },
+                {
+                    "path": "src/tests/import-export.spec.ts:3",
+                    "note": "Tests still exercise JSON flows"
+                }
+            ],
+            "gaps": [
+                "Need full Save/Load controls and XML exporter"
+            ],
+            "tests": []
+        },
+        {
+            "id": "M5",
+            "name": "Remove URL Sharing",
+            "status": "Not Started",
+            "evidence": [
+                {
+                    "path": "dist/index.html:196",
+                    "note": "Copy Shareable URL control remains"
+                },
+                {
+                    "path": "src/tests/url-sharing.spec.ts:16",
+                    "note": "Tests still validate legacy URL serialization"
+                },
+                {
+                    "path": "src/package.json:6",
+                    "note": "lz-string still copied into dist"
+                }
+            ],
+            "gaps": [
+                "Need to eliminate URL-based persistence and adjust docs/tests"
+            ],
+            "tests": []
+        },
+        {
+            "id": "M6",
+            "name": "Polish & Undo/Redo",
+            "status": "Not Started",
+            "evidence": [],
+            "gaps": [
+                "Undo/redo stack and UX polish pending"
+            ],
+            "tests": []
+        }
+    ],
+    "retries": {
+        "npmTest": 10
+    },
+    "envProbes": {
+        "npmCi": {
+            "status": "passed"
+        },
+        "npmRunBuild": {
+            "status": "passed"
+        },
+        "npmRunSetupCerts": {
+            "status": "passed",
+            "note": "Self-signed cert generated"
+        },
+        "npxPlaywrightInstall": {
+            "status": "passed"
+        },
+        "npmTest": {
+            "status": "passed",
+            "results": "src/test-results/results.json"
+        }
+    },
+    "timestamp": "2025-09-27T02:06:15.995245Z"
 }

@@ -5,3 +5,4 @@
 app/*.xml
 *.code-workspace
 app/.prompts/archive/*
+app/databases/*

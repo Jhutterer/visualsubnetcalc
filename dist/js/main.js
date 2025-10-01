@@ -4,6 +4,7 @@ let maxNetSize = 0;
 let infoColumnCount = 5
 let isHydratingFromSnapshot = false;
 let plannerSnapshotPersistPending = false;
+let plannerVrfs = [{ id: 1, name: 'GLOBAL' }, { id: 2, name: 'MGMT' }];
 
 if (typeof window !== 'undefined') {
     window.subnetMap = subnetMap;

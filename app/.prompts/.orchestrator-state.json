@@ -1,7 +1,7 @@
 {
     "branch": "feat/orchestrated-transition",
-    "lastMilestone": "M2: Enhanced Subnet Metadata & Validation",
-    "lastStep": "M2 validation tests added, all UI fields and validation already implemented, tests green",
+    "lastMilestone": "M3: Remove URL Sharing",
+    "lastStep": "M3 complete - URL sharing removed, plannerVrfs bug fixed, 80/96 tests passing",
     "lastCommit": "630a6b2",
     "checklist": [
         {
@@ -195,23 +195,84 @@
         {
             "id": "M3",
             "name": "Remove URL Sharing",
-            "status": "Not Started",
+            "status": "Done",
             "evidence": [
                 {
-                    "path": "dist/js/lz-string.min.js",
-                    "note": "Still present, needs removal"
+                    "path": "dist/index.html:484-486",
+                    "note": "'Copy Shareable URL' button removed"
                 },
                 {
-                    "path": "src/tests/url-sharing.spec.ts",
-                    "note": "Still exercises URL logic"
+                    "path": "dist/index.html:877",
+                    "note": "lz-string script tag removed"
+                },
+                {
+                    "path": "dist/js/lz-string.min.js",
+                    "note": "File deleted"
+                },
+                {
+                    "path": "dist/js/main.js:7",
+                    "note": "plannerVrfs initialized (fixed pre-existing bug causing ReferenceError)"
+                },
+                {
+                    "path": "dist/js/main.js:947",
+                    "note": "processConfigUrl() removed, replaced with unconditional reset()"
+                },
+                {
+                    "path": "dist/js/main.js (deleted lines 964-1006)",
+                    "note": "getConfigUrl() and processConfigUrl() functions removed"
+                },
+                {
+                    "path": "dist/js/main.js (deleted lines 153-162)",
+                    "note": "Copy URL button click handler removed"
+                },
+                {
+                    "path": "src/tests/url-sharing.spec.ts:1-19",
+                    "note": "Test gutted to placeholder validating button removal"
+                },
+                {
+                    "path": "src/tests/bug-fixes.spec.ts:4",
+                    "note": "URL import test skipped with test.skip()"
+                },
+                {
+                    "path": "src/tests/default-homepage.spec.ts:19",
+                    "note": "Removed #copy_url element check"
+                },
+                {
+                    "path": "README.md:18",
+                    "note": "Updated tenet to reflect file-based persistence only"
+                },
+                {
+                    "path": "README.md:92",
+                    "note": "Updated certificate note to mention File System Access API"
                 }
             ],
-            "gaps": [
-                "Remove lz-string dependency and URL serialization logic",
-                "Remove 'Copy Shareable URL' button",
-                "Gut or replace url-sharing.spec.ts"
+            "gaps": [],
+            "tests": [
+                {
+                    "path": "src/tests/url-sharing.spec.ts",
+                    "status": "Passing (1/1)",
+                    "note": "Validates URL button removal"
+                },
+                {
+                    "path": "src/tests/planner-basics.spec.ts",
+                    "status": "Passing (2/2)",
+                    "note": "Planner DB tests unaffected by URL removal"
+                },
+                {
+                    "path": "src/tests/planner-snapshot.spec.ts",
+                    "status": "Passing (12/12)",
+                    "note": "Planner snapshot tests unaffected by URL removal"
+                },
+                {
+                    "path": "npm test",
+                    "status": "80/96 passing (16 failing)",
+                    "note": "14 failing tests are pre-existing (Note Splitting/URL-dependent tests), 2 skipped. Fixed plannerVrfs bug improved pass rate from 38/96."
+                }
             ],
-            "tests": []
+            "risks": [
+                "14 pre-existing test failures remain (Note Splitting tests look for non-existent 'Note Split/Join' label, URL-dependent join tests)",
+                "These failures existed in last 'green' commit 630a6b2 - orchestrator notes claiming '96 specs green' were incorrect"
+            ]
         },
         {
             "id": "M4",
@@ -268,10 +329,10 @@
             "status": "passed"
         },
         "npmTest": {
-            "status": "passed",
+            "status": "partial",
             "results": "src/test-results/results.json",
-            "note": "planner-basics (2/2) and planner-snapshot (6/6, 12 tests total across browsers) passing"
+            "note": "80/96 passing, 2 skipped, 14 failing (pre-existing failures from 630a6b2)"
         }
     },
-    "timestamp": "2025-09-30T12:00:00.000Z"
+    "timestamp": "2025-10-01T13:30:00.000Z"
 }

@@ -1,8 +1,8 @@
 # Orchestrator Quickstart Guide
 
-**Last Updated:** 2025-09-30
+**Last Updated:** 2025-10-01
 **Branch:** feat/orchestrated-transition
-**Current State:** M0 + M1 + M1.5 + M2 complete, tests green (12/12 planner-snapshot tests passing)
+**Current State:** M0 + M1 + M1.5 + M2 + M3 complete, ready to commit (80/96 tests passing, 14 pre-existing failures)
 
 ## How to Resume Work
 
@@ -24,7 +24,7 @@ Read in order:
 Check `.orchestrator-state.json` → `lastMilestone` field:
 - If `"M1.5: Schema Reconciliation & Cleanup"` → Next is **M2 (VLAN/Gateway/VRF UI & Validation)**
 - If `"M2: Enhanced Subnet Metadata & Validation"` → Next is **M3 (Remove URL Sharing)**
-- If `"M3"` → Next is **M4 (Save/Load Workflow Polish)**
+- If `"M3: Remove URL Sharing"` → Next is **M4 (Save/Load Workflow Polish)** [CURRENTLY HERE - READY TO COMMIT]
 - If `"M4"` → Next is **M6 (Undo/Redo)**
 - If `"M6"` → Next is **M7 (XML Export)**
 

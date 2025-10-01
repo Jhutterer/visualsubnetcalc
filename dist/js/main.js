@@ -5,6 +5,10 @@ let infoColumnCount = 5
 let isHydratingFromSnapshot = false;
 let plannerSnapshotPersistPending = false;
 let plannerVrfs = [{ id: 1, name: 'GLOBAL' }, { id: 2, name: 'MGMT' }];
+let historyStack = [];
+let historyPosition = -1;
+let maxHistorySize = 50;
+let isApplyingHistoryChange = false;
 
 if (typeof window !== 'undefined') {
     window.subnetMap = subnetMap;
@@ -83,6 +87,7 @@ $('#color_palette div').on('click', function() {
 })
 $('#calcbody').on('click', '.row_address, .row_range, .row_usable, .row_hosts, .note, input', function(event) {
     if (inflightColor !== 'NONE') {
+        saveHistorySnapshot('color', 'Change color for ' + this.dataset.subnet);
         mutate_subnet_map('color', this.dataset.subnet, '', inflightColor)
         // We could re-render here, but there is really no point, keep performant and just change the background color now
         //renderTable();
@@ -164,6 +169,7 @@ $('#btn_import_export').on('click', function() {
     $('#importExportArea').val(JSON.stringify(exportConfig(false), null, 2))
 })
 function reset() {
+    saveHistorySnapshot('reset', 'Reset to new base network');
 
     set_usable_ips_title(operatingMode);
     let cidrInput = $('#network').val() + '/' + $('#netsize').val()
@@ -216,7 +222,10 @@ function isMatchingSize(subnet1, subnet2) {
 }
 $('#calcbody').on('click', 'td.split,td.join', function(event) {
     // HTML DOM Data elements! Yay! See the `data-*` attributes of the HTML tags
-    mutate_subnet_map(this.dataset.mutateVerb, this.dataset.subnet, '')
+    const verb = this.dataset.mutateVerb;
+    const subnet = this.dataset.subnet;
+    saveHistorySnapshot(verb, verb === 'split' ? 'Split ' + subnet : 'Join ' + subnet);
+    mutate_subnet_map(verb, subnet, '')
     if (subnetMap && typeof subnetMap === 'object') {
         subnetMap = sortIPCIDRs(subnetMap)
         if (typeof window !== 'undefined') { window.subnetMap = subnetMap; }
@@ -228,12 +237,14 @@ $('#calcbody').on('keyup', 'td.note input', function(event) {
     let delay = 1000;
     clearTimeout(noteTimeout);
     noteTimeout = setTimeout(function(element) {
+        saveHistorySnapshot('note', 'Update note for ' + element.dataset.subnet);
         mutate_subnet_map('note', element.dataset.subnet, '', element.value)
     }, delay, this);
 })
 $('#calcbody').on('focusout', 'td.note input', function(event) {
     // HTML DOM Data elements! Yay! See the `data-*` attributes of the HTML tags
     clearTimeout(noteTimeout);
+    saveHistorySnapshot('note', 'Update note for ' + this.dataset.subnet);
     mutate_subnet_map('note', this.dataset.subnet, '', this.value)
 })
 function renderTableFromTree(subnetTree, operatingMode) {
@@ -1535,6 +1546,201 @@ function waitForPlannerDbManager(timeoutMs = 2000) {
         }, step);
     });
 }
+async function saveHistorySnapshot(actionType, description) {
+    // Don't save history when applying history changes or hydrating from snapshot
+    if (isApplyingHistoryChange || isHydratingFromSnapshot) {
+        return;
+    }
+    let manager = window.plannerDbManager;
+    if (!manager) {
+        manager = await waitForPlannerDbManager();
+    }
+    if (!manager || !manager.hasDatabase || !manager.hasDatabase()) {
+        return;
+    }
+    try {
+        // Capture current state
+        const snapshot = buildSnapshotFromCurrentState();
+        const stateJson = JSON.stringify({
+            baseNetwork: snapshot.baseNetwork,
+            operatingMode: snapshot.operatingMode,
+            tree: snapshot.tree
+        });
+
+        // Truncate redo stack if we're in the middle of history
+        if (historyPosition < historyStack.length - 1) {
+            // Delete future history entries from database
+            const futureIds = historyStack.slice(historyPosition + 1).map(h => h.id);
+            if (futureIds.length > 0) {
+                futureIds.forEach(id => {
+                    manager.run('DELETE FROM planner_history WHERE id = ?', [id]);
+                });
+            }
+            historyStack = historyStack.slice(0, historyPosition + 1);
+        }
+
+        // Insert new history entry
+        manager.db.exec({
+            sql: 'INSERT INTO planner_history (snapshot_id, action_type, state_json, description, timestamp) VALUES (1, ?, ?, ?, datetime(\'now\'))',
+            bind: [actionType || 'unknown', stateJson, description || '']
+        });
+
+        // Get the inserted ID
+        const insertedId = manager.sqlite3.capi.sqlite3_last_insert_rowid(manager.db.pointer);
+
+        // Add to history stack
+        historyStack.push({
+            id: insertedId,
+            actionType,
+            description,
+            timestamp: new Date().toISOString()
+        });
+        historyPosition = historyStack.length - 1;
+
+        // Implement retention policy
+        if (historyStack.length > maxHistorySize) {
+            const oldestEntry = historyStack.shift();
+            manager.run('DELETE FROM planner_history WHERE id = ?', [oldestEntry.id]);
+            historyPosition--;
+        }
+
+        updateUndoRedoButtonStates();
+    } catch (err) {
+        console.warn('Failed to save history snapshot', err);
+    }
+}
+async function undoLastAction() {
+    if (historyPosition <= 0) {
+        console.log('Nothing to undo');
+        return;
+    }
+
+    let manager = window.plannerDbManager;
+    if (!manager) {
+        manager = await waitForPlannerDbManager();
+    }
+    if (!manager || !manager.hasDatabase || !manager.hasDatabase()) {
+        return;
+    }
+
+    try {
+        // Move back in history
+        historyPosition--;
+
+        // Get the previous state from database
+        const historyEntry = historyStack[historyPosition];
+        const rows = manager.selectAll('SELECT state_json FROM planner_history WHERE id = ?', [historyEntry.id]);
+
+        if (rows.length === 0) {
+            console.warn('History entry not found in database');
+            historyPosition++;
+            return;
+        }
+
+        const stateJson = rows[0].state_json;
+        const state = JSON.parse(stateJson);
+
+        // Restore the state
+        isApplyingHistoryChange = true;
+        try {
+            await hydratePlannerFromSnapshot(state);
+        } finally {
+            isApplyingHistoryChange = false;
+        }
+
+        updateUndoRedoButtonStates();
+    } catch (err) {
+        console.error('Undo failed', err);
+        historyPosition++; // Restore position on error
+        isApplyingHistoryChange = false;
+    }
+}
+async function redoLastAction() {
+    if (historyPosition >= historyStack.length - 1) {
+        console.log('Nothing to redo');
+        return;
+    }
+
+    let manager = window.plannerDbManager;
+    if (!manager) {
+        manager = await waitForPlannerDbManager();
+    }
+    if (!manager || !manager.hasDatabase || !manager.hasDatabase()) {
+        return;
+    }
+
+    try {
+        // Move forward in history
+        historyPosition++;
+
+        // Get the next state from database
+        const historyEntry = historyStack[historyPosition];
+        const rows = manager.selectAll('SELECT state_json FROM planner_history WHERE id = ?', [historyEntry.id]);
+
+        if (rows.length === 0) {
+            console.warn('History entry not found in database');
+            historyPosition--;
+            return;
+        }
+
+        const stateJson = rows[0].state_json;
+        const state = JSON.parse(stateJson);
+
+        // Restore the state
+        isApplyingHistoryChange = true;
+        try {
+            await hydratePlannerFromSnapshot(state);
+        } finally {
+            isApplyingHistoryChange = false;
+        }
+
+        updateUndoRedoButtonStates();
+    } catch (err) {
+        console.error('Redo failed', err);
+        historyPosition--; // Restore position on error
+        isApplyingHistoryChange = false;
+    }
+}
+function updateUndoRedoButtonStates() {
+    const undoBtn = document.querySelector('#undo-btn');
+    const redoBtn = document.querySelector('#redo-btn');
+
+    if (undoBtn) {
+        undoBtn.disabled = historyPosition <= 0;
+    }
+    if (redoBtn) {
+        redoBtn.disabled = historyPosition >= historyStack.length - 1;
+    }
+}
+async function loadHistoryStackFromDb() {
+    let manager = window.plannerDbManager;
+    if (!manager) {
+        manager = await waitForPlannerDbManager();
+    }
+    if (!manager || !manager.hasDatabase || !manager.hasDatabase()) {
+        historyStack = [];
+        historyPosition = -1;
+        updateUndoRedoButtonStates();
+        return;
+    }
+
+    try {
+        const rows = manager.selectAll('SELECT id, action_type AS actionType, description, timestamp FROM planner_history WHERE snapshot_id = 1 ORDER BY timestamp ASC');
+        historyStack = rows.map(row => ({
+            id: row.id,
+            actionType: row.actionType,
+            description: row.description,
+            timestamp: row.timestamp
+        }));
+        historyPosition = historyStack.length - 1;
+        updateUndoRedoButtonStates();
+    } catch (err) {
+        console.warn('Failed to load history stack from database', err);
+        historyStack = [];
+        historyPosition = -1;
+        updateUndoRedoButtonStates();
+    }
+}
 async function bootstrapPlannerFromDb() {
     const manager = await waitForPlannerDbManager();
     if (!manager) {
@@ -1601,14 +1807,51 @@ if (typeof window !== 'undefined') {
     window.persistPlannerSnapshot = persistPlannerSnapshot;
     window.refreshPlannerViewFromDb = refreshPlannerViewFromDb;
     window.hydratePlannerFromSnapshot = hydratePlannerFromSnapshot;
+    window.saveHistorySnapshot = saveHistorySnapshot;
+    window.undoLastAction = undoLastAction;
+    window.redoLastAction = redoLastAction;
+    window.updateUndoRedoButtonStates = updateUndoRedoButtonStates;
+    window.loadHistoryStackFromDb = loadHistoryStackFromDb;
+
+    // Undo/redo button click handlers
+    $(document).ready(function() {
+        $('#undo-btn').on('click', function(e) {
+            e.preventDefault();
+            undoLastAction();
+        });
+
+        $('#redo-btn').on('click', function(e) {
+            e.preventDefault();
+            redoLastAction();
+        });
+
+        // Keyboard shortcuts for undo/redo
+        $(document).on('keydown', function(e) {
+            // Ctrl+Z or Cmd+Z for undo
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undoLastAction();
+            }
+            // Ctrl+Y, Cmd+Y, or Ctrl+Shift+Z for redo
+            else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                redoLastAction();
+            }
+        });
+    });
+
     window.addEventListener('planner-db:opened', () => {
-        bootstrapPlannerFromDb().catch((err) => {
-            console.warn('Planner snapshot hydration failed', err);
+        loadHistoryStackFromDb().then(() => {
+            return bootstrapPlannerFromDb();
+        }).catch((err) => {
+            console.warn('Planner snapshot hydration or history load failed', err);
         });
     });
     waitForPlannerDbManager().then((manager) => {
         if (manager && typeof manager.hasDatabase === 'function' && manager.hasDatabase()) {
-            return bootstrapPlannerFromDb();
+            return loadHistoryStackFromDb().then(() => {
+                return bootstrapPlannerFromDb();
+            });
         }
         return false;
     }).catch((err) => {

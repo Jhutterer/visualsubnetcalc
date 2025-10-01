@@ -1,17 +1,18 @@
-# Visual Subnet Planner Database Schema (v3)
+# Visual Subnet Planner Database Schema (v4)
 
-**Status:** Active (as of M1.5 schema cleanup)
-**Schema Version:** 3
+**Status:** Active (as of M6 undo/redo feature)
+**Schema Version:** 4
 **Branch:** feat/orchestrated-transition
-**Last Updated:** 2025-09-30
+**Last Updated:** 2025-10-01
 
 ## Overview
 
-This document describes the **actual** SQLite schema used by the Visual Subnet Calculator's planner database feature. The schema is at version 3 and consists of three tables:
+This document describes the **actual** SQLite schema used by the Visual Subnet Calculator's planner database feature. The schema is at version 4 and consists of four tables:
 
 1. `planner_state` - Singleton row storing base network and operating mode
 2. `planner_subnet` - Hierarchical tree of subnets with self-referential parent_id
 3. `planner_vrf` - VRF definitions (GLOBAL, MGMT, and user-defined)
+4. `planner_history` - History snapshots for undo/redo functionality
 
 ## Schema Diagram
 
@@ -42,6 +43,14 @@ erDiagram
     planner_vrf {
         INTEGER id PK
         TEXT name UNIQUE
+    }
+    planner_history {
+        INTEGER id PK
+        INTEGER snapshot_id
+        TEXT action_type
+        TEXT timestamp
+        TEXT state_json
+        TEXT description
     }
 
     planner_subnet }o--|| planner_subnet : "parent_id (self-ref)"
@@ -99,6 +108,28 @@ Stores VRF (Virtual Routing and Forwarding) definitions.
 - `(1, 'GLOBAL')` - Default VRF for standard LANs
 - `(2, 'MGMT')` - Management VRF for device management interfaces
 
+### planner_history (Migration v4)
+
+Stores snapshots of planner state for undo/redo functionality.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique history entry ID |
+| snapshot_id | INTEGER | NOT NULL | Snapshot group identifier (increments on each action) |
+| action_type | TEXT | NOT NULL | Action type: 'split', 'join', 'note', 'color', 'reset', 'import' |
+| timestamp | TEXT | NOT NULL, DEFAULT CURRENT_TIMESTAMP | ISO timestamp of action |
+| state_json | TEXT | NOT NULL | Serialized JSON containing planner_state and planner_subnet tree |
+| description | TEXT | DEFAULT '' | Optional human-readable description |
+
+**Indexes:**
+- `idx_planner_history_snapshot` on `snapshot_id`
+- `idx_planner_history_timestamp` on `timestamp DESC`
+
+**Design Notes:**
+- `snapshot_id` groups related state changes (allows future multi-snapshot undo)
+- `state_json` contains full state for restoration: `{baseNetwork, operatingMode, tree: [...]}`
+- No retention policy implemented yet (table grows unbounded)
+
 ## Migration History
 
 ### Migration v1 (Placeholder)
@@ -130,6 +161,19 @@ Extended `planner_subnet` with networking metadata columns:
 - `capacity_total` / `capacity_used`: IP allocation tracking
 
 Also created `planner_vrf` table with preseeded GLOBAL and MGMT VRFs.
+
+### Migration v4 (Active)
+
+Added `planner_history` table for undo/redo functionality:
+- Stores full state snapshots after each user action (split, join, note, color, reset, import)
+- `snapshot_id` allows grouping multiple state changes for complex undo operations
+- Indexed on `snapshot_id` and `timestamp DESC` for efficient retrieval
+- `state_json` contains serialized `{baseNetwork, operatingMode, tree}` for full state restoration
+
+**Future considerations:**
+- Add retention policy (e.g., max 50 entries, prune oldest)
+- Implement state compression (lz-string) for large trees
+- Add history compaction to deduplicate similar states
 
 ## Usage Patterns
 

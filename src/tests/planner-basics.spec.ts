@@ -25,7 +25,7 @@ test.describe('Planner database bootstrap', () => {
       };
     });
 
-    expect(diagnostics.userVersion).toBe(3);
+    expect(diagnostics.userVersion).toBe(4);
     expect(diagnostics.foreignKeys).toBe(1);
     expect(typeof capabilities.supportsFileSystemAccess).toBe('boolean');
     const saveButton = page.getByRole('button', { name: /Save Planner DB/i });
@@ -56,7 +56,7 @@ test.describe('Planner database bootstrap', () => {
       return manager.getDiagnostics();
     });
 
-    expect(reopened.userVersion).toBe(3);
+    expect(reopened.userVersion).toBe(4);
     expect(reopened.foreignKeys).toBe(1);
     // M1.5: No building data to verify (tbl_building removed)
   });

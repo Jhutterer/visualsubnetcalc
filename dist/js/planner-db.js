@@ -1,5 +1,5 @@
 (function () {
-  const TARGET_VERSION = 3;
+  const TARGET_VERSION = 4;
   const MIGRATIONS = {
     1: `-- Migration v1 intentionally empty (reserved for future building planner)
         -- Original hierarchical tables (tbl_building, tbl_floors, etc.) removed
@@ -56,6 +56,18 @@
         ALTER TABLE planner_subnet ADD COLUMN capacity_used INTEGER NOT NULL DEFAULT 0;
 
         CREATE INDEX IF NOT EXISTS idx_planner_subnet_vlan ON planner_subnet(vlan_id);`,
+    4: `-- Migration v4: History tracking for undo/redo
+        CREATE TABLE IF NOT EXISTS planner_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          snapshot_id INTEGER NOT NULL,
+          action_type TEXT NOT NULL,
+          timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          state_json TEXT NOT NULL,
+          description TEXT DEFAULT ''
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_planner_history_snapshot ON planner_history(snapshot_id);
+        CREATE INDEX IF NOT EXISTS idx_planner_history_timestamp ON planner_history(timestamp DESC);`,
   };
   function ready(callback) {
     if (document.readyState === "loading") {

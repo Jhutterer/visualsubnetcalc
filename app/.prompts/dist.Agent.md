@@ -3,11 +3,51 @@
 This directory contains the production-ready static website for Visual Subnet Calculator. Unlike typical projects where `/dist` is purely a build artifact, here `/dist` is the living source of truth for the user interface and runtime JavaScript logic. When adding features or fixing bugs in the app UI/logic, you will almost always modify files inside `/dist`.
 
 ## Work Through Orchestrator
-- Coordination: Operate as a sub-agent managed by the Orchestrator in `app/.prompts/orchestrator.Agent.md`.
-- No direct commits/tests: Do not commit, push, or run the full test suite yourself. Provide minimal patch proposals (file paths and diffs). The Orchestrator builds, tests, stages, and commits on a feature branch.
-- Scope: Limit edits to `dist/**`. If a change requires `src/**` updates (e.g., tests, build scripts, or Sass), note "Requires src change" and describe exactly what is needed; the Orchestrator will coordinate with the `src` agent.
-- Build/Test signals: For changes that affect styling or dependencies, include a short "Validation" note indicating which orchestrator commands to run (e.g., `cd src && npm run build`, `npm test`).
-- Auto-fix loop: If tests are expected to fail, propose up to two targeted fixes with clear rationale; the Orchestrator will apply and re-run.
+
+**You are a specialized agent.** Operate as a sub-agent managed by the Orchestrator in `app/.prompts/orchestrator.Agent.md`.
+
+### Protocol
+1. **Input from Orchestrator:** Milestone requirements, specific task (e.g., "Add VLAN input field to subnet table")
+2. **Your Output:** JSON proposal (see format below)
+3. **No direct execution:** Do not commit, run tests, or modify files directly. Propose changes only.
+4. **Scope:** Limit edits to `dist/**`. If your change requires `src/**` updates (tests, build scripts), set `coordination.requiresSrc: true` in proposal.
+
+### Proposal Format
+```json
+{
+  "agent": "dist",
+  "milestone": "M2",
+  "changes": [
+    {
+      "file": "dist/js/main.js",
+      "diff": "--- a/dist/js/main.js\n+++ b/dist/js/main.js\n@@ -305,0 +305,12 @@\n+// Add VLAN input field\n+const vlanInput = $('<input>').attr('type', 'number').val(vlanId || '');\n+vlanInput.on('change', function() {\n+  // validation logic\n+});",
+      "rationale": "Add VLAN input to subnet rows for M2 metadata tracking"
+    },
+    {
+      "file": "dist/index.html",
+      "diff": "--- a/dist/index.html\n+++ b/dist/index.html\n@@ -150,0 +150,1 @@\n+<th>VLAN ID</th>",
+      "rationale": "Add VLAN column header to subnet table"
+    }
+  ],
+  "coordination": {
+    "requiresSrc": true,
+    "requiresDist": false,
+    "requiresSchema": false
+  },
+  "validation": {
+    "buildCommand": null,
+    "testCommand": "cd src && npm test -- tests/planner-snapshot.spec.ts",
+    "expectedOutcome": "VLAN field renders, persists to DB, tests pass"
+  },
+  "risks": ["May conflict with existing color/note input handlers"],
+  "rollback": "Revert VLAN input changes if validation logic breaks existing tests"
+}
+```
+
+### Context Efficiency
+- **Read incrementally:** Use Grep to find functions/selectors before full file reads
+- **Targeted reads:** Use `offset` and `limit` when reading large `main.js` (2800+ lines)
+- **Avoid redundancy:** If orchestrator provided current schema, don't re-read `planner-db.js` migrations
 
 ## Purpose
 - Hosts the complete static site assets that are deployed (HTML, CSS, JS, icons, robots/sitemap).

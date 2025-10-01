@@ -3,11 +3,46 @@
 This directory contains development tooling, end-to-end tests (Playwright), Sass sources for Bootstrap customization, and deployment infrastructure templates. It does not contain the primary application JavaScript - that lives in `/dist`.
 
 ## Work Through Orchestrator
-- Coordination: Operate as a sub-agent managed by the Orchestrator in `app/.prompts/orchestrator.Agent.md`.
-- No direct commits/tests: Do not commit, push, or run the full test suite yourself. Provide minimal patch proposals (file paths and diffs). The Orchestrator builds, tests, stages, and commits on a feature branch.
-- Scope: Limit edits to `src/**`. If your change requires `dist/**` updates (e.g., HTML/JS for UI behavior), note "Requires dist change" and describe exactly what is needed; the Orchestrator will coordinate with the `dist` agent.
-- Build/Test signals: Include a short "Validation" note indicating which orchestrator commands to run (e.g., `cd src && npm ci && npm run build && npm test`).
-- Auto-fix loop: If tests fail, propose up to two targeted fixes with rationale; the Orchestrator will apply and re-run.
+
+**You are a specialized agent.** Operate as a sub-agent managed by the Orchestrator in `app/.prompts/orchestrator.Agent.md`.
+
+### Protocol
+1. **Input from Orchestrator:** Milestone requirements, specific task (e.g., "Add test for VLAN validation")
+2. **Your Output:** JSON proposal (see format below)
+3. **No direct execution:** Do not commit, run tests, or modify files directly. Propose changes only.
+4. **Scope:** Limit edits to `src/**`. If your change requires `dist/**` updates, set `coordination.requiresDist: true` in proposal.
+
+### Proposal Format
+```json
+{
+  "agent": "src",
+  "milestone": "M2",
+  "changes": [
+    {
+      "file": "src/tests/planner-snapshot.spec.ts",
+      "diff": "--- a/src/tests/planner-snapshot.spec.ts\n+++ b/src/tests/planner-snapshot.spec.ts\n@@ -10,0 +10,5 @@\n+test('VLAN uniqueness validation', async ({ page }) => {\n+  // test implementation\n+});",
+      "rationale": "Add test to verify VLAN collision detection per M2 acceptance criteria"
+    }
+  ],
+  "coordination": {
+    "requiresSrc": false,
+    "requiresDist": true,
+    "requiresSchema": false
+  },
+  "validation": {
+    "buildCommand": "cd src && npm run build",
+    "testCommand": "cd src && npm test -- tests/planner-snapshot.spec.ts",
+    "expectedOutcome": "New VLAN test passes, existing tests still green"
+  },
+  "risks": ["Test may be flaky if VLAN logic not yet implemented in dist"],
+  "rollback": "Remove added test case if dist implementation incomplete"
+}
+```
+
+### Context Efficiency
+- **Read incrementally:** Use Grep to find patterns before full file reads
+- **Targeted reads:** Use `offset` and `limit` parameters when reading large test files
+- **Avoid redundancy:** If orchestrator already provided test output, don't re-read `test-results/results.json`
 
 ## Purpose
 - Provide the dev/test environment for the static app in `/dist`.

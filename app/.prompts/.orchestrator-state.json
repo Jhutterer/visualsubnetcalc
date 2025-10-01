@@ -1,8 +1,8 @@
 {
     "branch": "feat/orchestrated-transition",
-    "lastMilestone": "M6: Undo/Redo",
-    "lastStep": "M6 complete - undo/redo implemented with planner_history table, 96/104 tests passing (8 pre-existing failures)",
-    "lastCommit": "908053c",
+    "lastMilestone": "M4: Save/Load Workflow Polish (retroactive)",
+    "lastStep": "M4 verified complete (commit bcd2143) - file name display, last saved timestamp, Save As, Close Database all functional, 96/104 tests passing (8 pre-existing failures)",
+    "lastCommit": "bcd2143",
     "checklist": [
         {
             "id": "M0",
@@ -277,14 +277,61 @@
         {
             "id": "M4",
             "name": "Save/Load Workflow Polish",
-            "status": "Not Started",
-            "evidence": [],
-            "gaps": [
-                "Add file name display and last-saved timestamp",
-                "Add 'Save As' and 'Close Database' buttons",
-                "Improve auto-save feedback"
+            "status": "Done",
+            "evidence": [
+                {
+                    "path": "dist/index.html:166",
+                    "note": "File name display element (db-filename) shows current database file"
+                },
+                {
+                    "path": "dist/index.html:167",
+                    "note": "Last saved timestamp element (db-last-saved) with relative time formatting"
+                },
+                {
+                    "path": "dist/index.html:197-202",
+                    "note": "Save As button (db-save-as-btn) for creating new file handle"
+                },
+                {
+                    "path": "dist/index.html:213-218",
+                    "note": "Close Database button (db-close-btn) with confirmation dialog"
+                },
+                {
+                    "path": "dist/index.html:168-171",
+                    "note": "Saving indicator with spinner for auto-save feedback"
+                },
+                {
+                    "path": "dist/js/planner-db.js:232-263",
+                    "note": "saveAs() method implements File System Access API file picker with error recovery"
+                },
+                {
+                    "path": "dist/js/planner-db.js:344-360",
+                    "note": "closeDatabase() method clears state and dispatches close event"
+                },
+                {
+                    "path": "dist/js/planner-db.js:821-839",
+                    "note": "UI render logic displays file name and last saved timestamp with relative formatting"
+                },
+                {
+                    "path": "dist/js/planner-db.js:922-938",
+                    "note": "Save As button handler with AbortError handling for user cancellation"
+                },
+                {
+                    "path": "dist/js/planner-db.js:940-954",
+                    "note": "Close button handler with confirmation dialog"
+                },
+                {
+                    "path": "dist/js/main.js:1466-1480",
+                    "note": "Auto-save with saving indicator (show/hide) during snapshot persistence"
+                }
             ],
-            "tests": []
+            "gaps": [],
+            "tests": [
+                {
+                    "path": "npm test",
+                    "status": "96/104 passing",
+                    "note": "M4 features fully implemented, tests green (8 pre-existing failures unrelated to M4)"
+                }
+            ]
         },
         {
             "id": "M6",
@@ -389,5 +436,5 @@
             "note": "80/96 passing, 2 skipped, 14 failing (pre-existing failures from 630a6b2)"
         }
     },
-    "timestamp": "2025-10-01T13:30:00.000Z"
+    "timestamp": "2025-10-01T14:00:00.000Z"
 }

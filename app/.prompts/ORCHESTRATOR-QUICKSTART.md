@@ -3,6 +3,7 @@
 **Last Updated:** 2025-10-01
 **Branch:** feat/orchestrated-transition
 **Current State:** M0 + M1 + M1.5 + M2 + M3 + M4 + M6 complete (96/104 tests passing, 8 pre-existing failures)
+**Next Milestone:** M7 (XML Export)
 
 ## How to Resume Work
 
@@ -24,9 +25,8 @@ Read in order:
 Check `.orchestrator-state.json` → `lastMilestone` field:
 - If `"M1.5: Schema Reconciliation & Cleanup"` → Next is **M2 (VLAN/Gateway/VRF UI & Validation)**
 - If `"M2: Enhanced Subnet Metadata & Validation"` → Next is **M3 (Remove URL Sharing)**
-- If `"M3: Remove URL Sharing"` → Next is **M4 (Save/Load Workflow Polish)** [CURRENTLY HERE - READY TO COMMIT]
-- If `"M4"` → Next is **M6 (Undo/Redo)**
-- If `"M6"` → Next is **M7 (XML Export)**
+- If `"M3: Remove URL Sharing"` → Next is **M4 (Save/Load Workflow Polish)**
+- If `"M4"` or `"M6"` → Next is **M7 (XML Export)** [CURRENTLY HERE]
 
 ### 3. Execute Milestone Workflow
 

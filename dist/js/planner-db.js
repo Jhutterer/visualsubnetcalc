@@ -845,6 +845,10 @@
       if (saveAsBtn) {
         saveAsBtn.disabled = !diag.hasDatabase;
       }
+      const exportXmlBtn = document.querySelector("#db-export-xml-btn");
+      if (exportXmlBtn) {
+        exportXmlBtn.disabled = !diag.hasDatabase;
+      }
       if (closeBtn) {
         closeBtn.disabled = !diag.hasDatabase;
       }
@@ -980,6 +984,27 @@
         showFeedback("Unable to export planner database.", "error");
       }
     });
+    const exportXmlBtn = document.querySelector("#db-export-xml-btn");
+    if (exportXmlBtn) {
+      exportXmlBtn.addEventListener("click", async () => {
+        try {
+          if (!manager.hasDatabase()) {
+            showFeedback("No database loaded to export.", "error");
+            return;
+          }
+          // Call the main.js function
+          if (typeof window.exportPlannerToXml === "function") {
+            await window.exportPlannerToXml();
+            showFeedback("Planner exported to XML successfully.");
+          } else {
+            throw new Error("exportPlannerToXml function not available");
+          }
+        } catch (err) {
+          console.error(err);
+          showFeedback("Unable to export planner to XML.", "error");
+        }
+      });
+    }
     openBtn.addEventListener("click", async () => {
       if (manager.supportsFileSystemAccess()) {
         try {

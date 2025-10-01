@@ -1282,6 +1282,153 @@ function renameKey(obj, oldKey, newKey) {
         delete obj[oldKey];
     }
 }
+
+/**
+ * Export current planner database to XML format
+ * Queries planner_state, planner_subnet, planner_vrf tables and generates hierarchical XML
+ * @returns {Promise<void>}
+ */
+async function exportPlannerToXml() {
+    const manager = window.plannerDbManager;
+    if (!manager || !manager.hasDatabase()) {
+        throw new Error('No planner database loaded');
+    }
+
+    // Helper function to escape XML special characters
+    const escapeXml = (str) => {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    };
+
+    // Helper function to format XML element
+    const xmlElement = (name, value, indent = 0) => {
+        const spaces = '  '.repeat(indent);
+        if (value === null || value === undefined || value === '') {
+            return `${spaces}<${name}/>`;
+        }
+        return `${spaces}<${name}>${escapeXml(value)}</${name}>`;
+    };
+
+    try {
+        // Query planner_state
+        const stateRows = manager.selectAll(
+            'SELECT base_network, operating_mode FROM planner_state WHERE id = 1 LIMIT 1;'
+        );
+        const state = stateRows[0] || { base_network: '', operating_mode: 'Standard' };
+
+        // Query planner_subnet with deterministic ordering (ORDER BY id ASC)
+        const subnetRows = manager.selectAll(
+            `SELECT
+                id, parent_id, cidr, note, color, name, vlan_id, gateway_ip,
+                purpose, vrf_id, is_management, capacity_total, capacity_used, ordinal
+            FROM planner_subnet
+            ORDER BY id ASC;`
+        );
+
+        // Query planner_vrf for name lookup
+        const vrfRows = manager.selectAll(
+            'SELECT id, name FROM planner_vrf ORDER BY id ASC;'
+        );
+        const vrfMap = new Map();
+        vrfRows.forEach(vrf => vrfMap.set(vrf.id, vrf.name));
+
+        // Build XML document
+        const timestamp = new Date().toISOString();
+        const schemaVersion = manager.getUserVersion();
+
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xml += '<planner_export version="1.0">\n';
+
+        // Metadata section
+        xml += '  <metadata>\n';
+        xml += xmlElement('export_timestamp', timestamp, 2) + '\n';
+        xml += xmlElement('schema_version', schemaVersion, 2) + '\n';
+        xml += '  </metadata>\n';
+
+        // Planner state section
+        xml += '  <planner_state>\n';
+        xml += xmlElement('base_network', state.base_network, 2) + '\n';
+        xml += xmlElement('operating_mode', state.operating_mode, 2) + '\n';
+        xml += '  </planner_state>\n';
+
+        // Subnets section
+        xml += '  <subnets>\n';
+        subnetRows.forEach(subnet => {
+            const parentId = subnet.parent_id === null || subnet.parent_id === undefined ? '' : subnet.parent_id;
+            const vrfName = subnet.vrf_id !== null && subnet.vrf_id !== undefined ? vrfMap.get(subnet.vrf_id) || '' : '';
+
+            xml += `    <subnet id="${subnet.id}" parent_id="${escapeXml(parentId)}">\n`;
+            xml += xmlElement('cidr', subnet.cidr, 3) + '\n';
+            xml += xmlElement('note', subnet.note, 3) + '\n';
+            xml += xmlElement('color', subnet.color, 3) + '\n';
+            xml += xmlElement('name', subnet.name, 3) + '\n';
+
+            // Handle nullable fields properly
+            if (subnet.vlan_id !== null && subnet.vlan_id !== undefined && subnet.vlan_id !== '') {
+                xml += xmlElement('vlan_id', subnet.vlan_id, 3) + '\n';
+            } else {
+                xml += '      <vlan_id/>\n';
+            }
+
+            xml += xmlElement('gateway_ip', subnet.gateway_ip, 3) + '\n';
+            xml += xmlElement('purpose', subnet.purpose, 3) + '\n';
+
+            if (subnet.vrf_id !== null && subnet.vrf_id !== undefined && subnet.vrf_id !== '') {
+                xml += xmlElement('vrf_id', subnet.vrf_id, 3) + '\n';
+                xml += xmlElement('vrf_name', vrfName, 3) + '\n';
+            } else {
+                xml += '      <vrf_id/>\n';
+                xml += '      <vrf_name/>\n';
+            }
+
+            xml += xmlElement('is_management', subnet.is_management || 0, 3) + '\n';
+            xml += xmlElement('capacity_total', subnet.capacity_total || 0, 3) + '\n';
+            xml += xmlElement('capacity_used', subnet.capacity_used || 0, 3) + '\n';
+            xml += xmlElement('ordinal', subnet.ordinal || 0, 3) + '\n';
+            xml += '    </subnet>\n';
+        });
+        xml += '  </subnets>\n';
+
+        // VRFs section
+        xml += '  <vrfs>\n';
+        vrfRows.forEach(vrf => {
+            xml += `    <vrf id="${vrf.id}" name="${escapeXml(vrf.name)}"/>\n`;
+        });
+        xml += '  </vrfs>\n';
+
+        xml += '</planner_export>\n';
+
+        // Create filename with timestamp
+        const dateStr = timestamp.replace(/[:.]/g, '-').replace('T', '-').substring(0, 19);
+        const filename = `planner-export-${dateStr}.xml`;
+
+        // Trigger download
+        const blob = new Blob([xml], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+
+    } catch (err) {
+        console.error('XML export failed:', err);
+        throw err;
+    }
+}
+
+// Expose exportPlannerToXml to window object for cross-file access
+if (typeof window !== 'undefined') {
+    window.exportPlannerToXml = exportPlannerToXml;
+}
+
 function importConfig(text) {
     if (text['config_version'] === '1') {
         var [subnetNet, subnetSize] = Object.keys(text['subnets'])[0].split('/')

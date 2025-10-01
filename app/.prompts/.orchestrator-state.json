@@ -1,8 +1,8 @@
 {
     "branch": "feat/orchestrated-transition",
-    "lastMilestone": "M3: Remove URL Sharing",
-    "lastStep": "M3 complete - URL sharing removed, plannerVrfs bug fixed, 80/96 tests passing",
-    "lastCommit": "630a6b2",
+    "lastMilestone": "M6: Undo/Redo",
+    "lastStep": "M6 complete - undo/redo implemented with planner_history table, 96/104 tests passing (8 pre-existing failures)",
+    "lastCommit": "908053c",
     "checklist": [
         {
             "id": "M0",
@@ -289,14 +289,69 @@
         {
             "id": "M6",
             "name": "Undo/Redo",
-            "status": "Not Started",
-            "evidence": [],
-            "gaps": [
-                "Create planner_history table (migration v4)",
-                "Implement undo/redo stack",
-                "Add Undo/Redo UI buttons"
+            "status": "Done",
+            "evidence": [
+                {
+                    "path": "dist/js/planner-db.js:59-70",
+                    "note": "Migration v4 creates planner_history table with snapshot_id, action_type, state_json, description, timestamp"
+                },
+                {
+                    "path": "dist/js/main.js:8-11",
+                    "note": "History stack management variables: historyStack, historyPosition, maxHistorySize, isApplyingHistoryChange"
+                },
+                {
+                    "path": "dist/js/main.js:1542-1604",
+                    "note": "saveHistorySnapshot() captures state before mutations and persists to planner_history table"
+                },
+                {
+                    "path": "dist/js/main.js:1605-1650",
+                    "note": "undoLastAction() restores previous state from history stack"
+                },
+                {
+                    "path": "dist/js/main.js:1651-1696",
+                    "note": "redoLastAction() moves forward in history stack"
+                },
+                {
+                    "path": "dist/js/main.js:225",
+                    "note": "Split/join operations save history snapshot before mutation"
+                },
+                {
+                    "path": "dist/js/main.js:238,245",
+                    "note": "Note change operations save history snapshot"
+                },
+                {
+                    "path": "dist/js/main.js:90",
+                    "note": "Color change operations save history snapshot"
+                },
+                {
+                    "path": "dist/js/main.js:172",
+                    "note": "Reset operation saves history snapshot"
+                },
+                {
+                    "path": "dist/index.html:228-259",
+                    "note": "Undo/Redo buttons added to UI with Bootstrap icons"
+                },
+                {
+                    "path": "dist/js/main.js:1829-1840",
+                    "note": "Keyboard shortcuts: Ctrl+Z (undo), Ctrl+Y/Ctrl+Shift+Z (redo)"
+                },
+                {
+                    "path": "dist/js/main.js:1844-1848",
+                    "note": "loadHistoryStackFromDb() called on planner-db:opened event"
+                },
+                {
+                    "path": "src/tests/planner-basics.spec.ts:28,59",
+                    "note": "Tests updated to expect schema v4"
+                }
             ],
-            "tests": []
+            "gaps": [],
+            "tests": [
+                {
+                    "path": "npm test",
+                    "status": "96/104 passing",
+                    "note": "8 pre-existing test failures (Note Splitting/Joining UI tests, Deep Functional)"
+                }
+            ]
         },
         {
             "id": "M7",

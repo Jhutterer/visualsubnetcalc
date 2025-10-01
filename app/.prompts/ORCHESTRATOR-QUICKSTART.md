@@ -1,8 +1,8 @@
 # Orchestrator Quickstart Guide
 
-**Last Updated:** 2025-09-29
+**Last Updated:** 2025-09-30
 **Branch:** feat/orchestrated-transition
-**Current State:** M0 + M1 complete, tests failing (schema v2/v3 mismatch)
+**Current State:** M0 + M1 + M1.5 + M2 complete, tests green (12/12 planner-snapshot tests passing)
 
 ## How to Resume Work
 
@@ -22,10 +22,11 @@ Read in order:
 ### 2. Determine Current Milestone
 
 Check `.orchestrator-state.json` → `lastMilestone` field:
-- If `"M1"` → Next is **M1.5 (Schema Reconciliation)**
-- If `"M1.5"` → Next is **M2 (VLAN/Gateway UI)**
-- If `"M2"` → Next is **M3 (Remove URL Sharing)**
-- etc.
+- If `"M1.5: Schema Reconciliation & Cleanup"` → Next is **M2 (VLAN/Gateway/VRF UI & Validation)**
+- If `"M2: Enhanced Subnet Metadata & Validation"` → Next is **M3 (Remove URL Sharing)**
+- If `"M3"` → Next is **M4 (Save/Load Workflow Polish)**
+- If `"M4"` → Next is **M6 (Undo/Redo)**
+- If `"M6"` → Next is **M7 (XML Export)**
 
 ### 3. Execute Milestone Workflow
 
@@ -33,42 +34,43 @@ Follow `orchestrator.Agent.md` Phase 1-5:
 
 **Phase 1: Planning**
 ```
-1. Parse M1.5 requirements from PRD v4
+1. Parse M3 requirements from PRD v4
 2. Identify agents needed:
-   - Schema Manager (remove unused tables, update docs)
-   - src Agent (fix test expectations)
-   - Test Fixer (diagnose remaining failures)
+   - dist Agent (remove URL serialization logic from main.js and lz-string from index.html)
+   - src Agent (remove/gut url-sharing.spec.ts, update README.md)
 3. Generate task list in dependency order
+4. Use TodoWrite to track tasks
 ```
 
 **Phase 2: Implementation**
 ```
-4. Invoke Schema Manager:
-   Input: "Remove tbl_building/tbl_device/etc. from migration v1, update database-schema.md"
-   Expect: JSON proposal with migration changes and doc updates
-5. Invoke src Agent:
-   Input: "Update planner-basics.spec.ts:27 to expect userVersion=3"
-   Expect: JSON proposal with test file diff
-6. Validate proposals for conflicts
-7. Apply changes using Edit tool
+5. Invoke dist Agent:
+   Input: "Remove URL hash serialization logic and lz-string references from dist/js/main.js and dist/index.html"
+   Expect: JSON proposal with removals
+6. Invoke src Agent:
+   Input: "Delete/gut url-sharing.spec.ts and update README.md to reflect file-based persistence only"
+   Expect: JSON proposal with test/doc changes
+7. Validate proposals for conflicts
+8. Apply changes using Edit tool
 ```
 
 **Phase 3: Validation**
 ```
-8. Run: cd src && npm run build (if dist changed)
-9. Run: cd src && npm test -- tests/planner-basics.spec.ts
+9. Run: cd src && npm test (ensure no tests depend on URL logic)
 10. Parse: src/test-results/results.json
+11. Verify no regressions in remaining tests
 ```
 
 **Phase 4: Recovery or Commit**
 ```
-11. If PASS:
+12. If PASS:
     - git add [changed files]
-    - git commit -m "refactor(schema): align DB migrations with actual usage and fix tests"
+    - git commit -m "refactor(persistence): remove URL sharing and lz-string dependency"
     - Update .orchestrator-state.json
     - Append to .orchestrator-notes.md
-    - Proceed to M2
-12. If FAIL:
+    - Update ORCHESTRATOR-QUICKSTART.md
+    - Proceed to M4
+13. If FAIL:
     - Invoke Test Fixer with failure output
     - Apply HIGH confidence fixes (max 2)
     - Re-test
@@ -77,8 +79,9 @@ Follow `orchestrator.Agent.md` Phase 1-5:
 
 **Phase 5: State Persistence**
 ```
-13. Write .orchestrator-state.json with new milestone
-14. Append completion evidence to .orchestrator-notes.md
+14. Write .orchestrator-state.json with new milestone
+15. Append completion evidence to .orchestrator-notes.md
+16. Update ORCHESTRATOR-QUICKSTART.md current state and next milestone
 ```
 
 ## Agent Invocation Patterns
@@ -137,10 +140,10 @@ Budget: 2 attempts, then escalate
 **Status:** Tests failing after 2 fix attempts
 
 **Context:**
-- Milestone: M1.5
-- Agent invocations: Schema Manager (success), src Agent (success), Test Fixer (2 failures)
-- Current commit: abc1234
-- Failing tests: planner-basics.spec.ts (schema version), planner-snapshot.spec.ts (data mismatch)
+- Milestone: M2
+- Agent invocations: dist Agent (success), src Agent (success), Test Fixer (2 failures)
+- Current commit: aaaa171
+- Failing tests: planner-snapshot.spec.ts (VLAN validation), subnet-basic.spec.ts (UI regression)
 
 **Applied Fixes:**
 1. Attempt 1: Updated test to expect v3 → still failing (new error)
@@ -152,13 +155,13 @@ Budget: 2 attempts, then escalate
 - Schema state: v3, TARGET_VERSION=3
 
 **Request:**
-Human review of test expectations vs actual schema implementation.
-Possible schema logic bug in planner-db.js migrations.
+Human review of VLAN validation logic and test expectations.
+Possible UI regression in subnet calculator after adding new fields.
 
 **Next Steps (upon resolution):**
 - Apply human-provided fix
 - Resume with: npm test
-- If green → commit M1.5 and proceed to M2
+- If green → commit M2 and proceed to M3
 ```
 
 ## Success Metrics (Track Per Session)
@@ -169,6 +172,14 @@ Possible schema logic bug in planner-db.js migrations.
 - **Context tokens used:** Sum (aim: <50k per milestone)
 - **Escalations:** Count (aim: 0 per session)
 
+**M2 Session Results:**
+- Milestones completed: 1 (M2)
+- Agent invocations: 2 (dist Agent for analysis, src Agent for tests)
+- Test fix attempts: 1 (selector and assertion fixes)
+- Context tokens used: ~89k (high due to agent task invocations and file reads)
+- Escalations: 0
+- **Key Learning:** Check for existing implementations before building new features
+
 ## Common Pitfalls to Avoid
 
 ❌ **Don't write code directly** → Always delegate to specialized agents
@@ -176,6 +187,8 @@ Possible schema logic bug in planner-db.js migrations.
 ❌ **Don't skip schema consistency checks** → Invoke Schema Manager for validation
 ❌ **Don't apply LOW confidence fixes automatically** → Escalate instead
 ❌ **Don't batch-commit multiple milestones** → One milestone = one commit
+❌ **Don't forget to update ORCHESTRATOR-QUICKSTART.md** → Update after each milestone completion
+✅ **DO check for existing implementations** → Use Grep/Read to analyze code before invoking agents
 
 ## File Modification Matrix
 
@@ -183,21 +196,21 @@ Possible schema logic bug in planner-db.js migrations.
 |-------|-----------|---------------|
 | Schema Manager | `dist/js/planner-db.js` (migrations), `app/database-schema.md` | dist UI, src tests |
 | dist Agent | `dist/js/main.js`, `dist/index.html`, `dist/css/main.css` | src tests, build scripts |
-| src Agent | `src/tests/*.spec.ts`, `src/package.json`, `src/playwright.config.ts` | dist runtime code |
+| src Agent | `src/tests/*.spec.ts`, `src/package.json`, `src/playwright.config.ts`, `README.md` | dist runtime code |
 | Test Fixer | Any file (via proposals) | Nothing (never applies directly) |
-| Orchestrator | Git operations, state files (`.orchestrator-*`) | Agent-owned files (delegate instead) |
+| Orchestrator | Git operations, state files (`.orchestrator-*`, `ORCHESTRATOR-QUICKSTART.md`) | Agent-owned files (delegate instead) |
 
 ## Next Session Checklist
 
 Before starting next session:
 
-- [ ] Read `.orchestrator-state.json` to determine current milestone
-- [ ] Check git status for uncommitted changes (shouldn't be any)
-- [ ] Verify branch is `feat/orchestrated-transition`
-- [ ] Review `.orchestrator-notes.md` last entry for any blockers
-- [ ] Load PRD v4 to understand upcoming milestone
-- [ ] Identify agents needed for next milestone
-- [ ] Begin Phase 1 (Planning)
+- [x] Read `.orchestrator-state.json` to determine current milestone → **M2 complete, next is M3**
+- [x] Check git status for uncommitted changes → **Clean (commits: 630a6b2, 4dadd72)**
+- [x] Verify branch is `feat/orchestrated-transition` → **Confirmed**
+- [x] Review `.orchestrator-notes.md` last entry for any blockers → **No blockers, M2 green**
+- [ ] Load PRD v4 to understand M3 requirements → **Next: Remove URL Sharing**
+- [ ] Identify agents needed for M3 → **dist Agent (remove URL logic), src Agent (remove tests/update docs)**
+- [ ] Begin Phase 1 (Planning) → **Ready to start M3**
 
 ## Emergency Recovery
 

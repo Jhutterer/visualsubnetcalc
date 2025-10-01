@@ -1,139 +1,10 @@
 (function () {
   const TARGET_VERSION = 3;
   const MIGRATIONS = {
-    1: `CREATE TABLE IF NOT EXISTS tbl_building (
-
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-          name TEXT NOT NULL,
-
-          slug TEXT NOT NULL UNIQUE,
-
-          mailing_address TEXT DEFAULT ''
-
-        );
-
-        CREATE TABLE IF NOT EXISTS tbl_floors (
-
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-          building_id INTEGER NOT NULL,
-
-          number INTEGER NOT NULL,
-
-          name TEXT,
-
-          FOREIGN KEY(building_id) REFERENCES tbl_building(id) ON DELETE CASCADE
-
-        );
-
-        CREATE TABLE IF NOT EXISTS tbl_idf (
-
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-          floor_id INTEGER NOT NULL,
-
-          name TEXT NOT NULL,
-
-          FOREIGN KEY(floor_id) REFERENCES tbl_floors(id) ON DELETE CASCADE
-
-        );
-
-        CREATE TABLE IF NOT EXISTS tbl_rack (
-
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-          idf_id INTEGER NOT NULL,
-
-          total_u INTEGER NOT NULL,
-
-          rack_type TEXT,
-
-          name TEXT,
-
-          FOREIGN KEY(idf_id) REFERENCES tbl_idf(id) ON DELETE CASCADE
-
-        );
-
-        CREATE TABLE IF NOT EXISTS tbl_device (
-
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-          rack_id INTEGER NOT NULL,
-
-          device_type TEXT NOT NULL,
-
-          mgmt_ip TEXT,
-
-          name TEXT NOT NULL,
-
-          first_rack_u INTEGER,
-
-          rack_u_size INTEGER,
-
-          stack_member INTEGER DEFAULT 0,
-
-          manufacturer TEXT,
-
-          model TEXT,
-
-          FOREIGN KEY(rack_id) REFERENCES tbl_rack(id) ON DELETE CASCADE
-
-        );
-
-        CREATE TABLE IF NOT EXISTS tbl_supernet (
-
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-          network TEXT NOT NULL,
-
-          building_id INTEGER NOT NULL,
-
-          FOREIGN KEY(building_id) REFERENCES tbl_building(id) ON DELETE CASCADE
-
-        );
-
-        CREATE TABLE IF NOT EXISTS tbl_subnet (
-
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-          supernet_id INTEGER NOT NULL,
-
-          network TEXT NOT NULL,
-
-          name TEXT,
-
-          vlan_id INTEGER,
-
-          gateway_ip TEXT,
-
-          available_hosts INTEGER,
-
-          FOREIGN KEY(supernet_id) REFERENCES tbl_supernet(id) ON DELETE CASCADE
-
-        );
-
-        CREATE TABLE IF NOT EXISTS tbl_interface (
-
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-          device_id INTEGER NOT NULL,
-
-          name TEXT NOT NULL,
-
-          type TEXT NOT NULL,
-
-          subnet_id INTEGER,
-
-          ip_address TEXT,
-
-          description TEXT,
-
-          FOREIGN KEY(device_id) REFERENCES tbl_device(id) ON DELETE CASCADE,
-
-          FOREIGN KEY(subnet_id) REFERENCES tbl_subnet(id) ON DELETE SET NULL
-
-        );`,
+    1: `-- Migration v1 intentionally empty (reserved for future building planner)
+        -- Original hierarchical tables (tbl_building, tbl_floors, etc.) removed
+        -- as they were never used by the application. See PRD v4 M1.5.
+        SELECT 1;`,
     2: `CREATE TABLE IF NOT EXISTS planner_state (
 
           id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -163,33 +34,26 @@
         );
 
         CREATE INDEX IF NOT EXISTS idx_planner_subnet_parent ON planner_subnet(parent_id);`,
-    3: `ALTER TABLE planner_subnet ADD COLUMN name TEXT DEFAULT '';
-
-        ALTER TABLE planner_subnet ADD COLUMN vlan_id INTEGER;
-
-        ALTER TABLE planner_subnet ADD COLUMN gateway_ip TEXT DEFAULT '';
-
-        ALTER TABLE planner_subnet ADD COLUMN purpose TEXT NOT NULL DEFAULT 'LAN';
-
-        ALTER TABLE planner_subnet ADD COLUMN vrf_id INTEGER REFERENCES planner_vrf(id) ON DELETE SET NULL;
-
-        ALTER TABLE planner_subnet ADD COLUMN is_management INTEGER NOT NULL DEFAULT 0;
-
-        ALTER TABLE planner_subnet ADD COLUMN capacity_total INTEGER NOT NULL DEFAULT 0;
-
-        ALTER TABLE planner_subnet ADD COLUMN capacity_used INTEGER NOT NULL DEFAULT 0;
-
+    3: `-- Migration v3: Extended subnet metadata
+        -- Create VRF table first
         CREATE TABLE IF NOT EXISTS planner_vrf (
-
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-
           name TEXT NOT NULL UNIQUE
-
         );
-
         INSERT OR IGNORE INTO planner_vrf (id, name) VALUES (1, 'GLOBAL');
-
         INSERT OR IGNORE INTO planner_vrf (id, name) VALUES (2, 'MGMT');
+
+        -- SQLite doesn't support ADD COLUMN IF NOT EXISTS
+        -- This migration assumes it runs ONCE on a v2 database
+        -- Re-running on a v3 database will fail (as expected)
+        ALTER TABLE planner_subnet ADD COLUMN name TEXT DEFAULT '';
+        ALTER TABLE planner_subnet ADD COLUMN vlan_id INTEGER;
+        ALTER TABLE planner_subnet ADD COLUMN gateway_ip TEXT DEFAULT '';
+        ALTER TABLE planner_subnet ADD COLUMN purpose TEXT NOT NULL DEFAULT 'LAN';
+        ALTER TABLE planner_subnet ADD COLUMN vrf_id INTEGER REFERENCES planner_vrf(id) ON DELETE SET NULL;
+        ALTER TABLE planner_subnet ADD COLUMN is_management INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE planner_subnet ADD COLUMN capacity_total INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE planner_subnet ADD COLUMN capacity_used INTEGER NOT NULL DEFAULT 0;
 
         CREATE INDEX IF NOT EXISTS idx_planner_subnet_vlan ON planner_subnet(vlan_id);`,
   };
@@ -560,28 +424,15 @@
       void this.persistCurrentDatabase({ silent: true });
     }
     async insertSampleBuilding() {
-      if (!this.db) throw new Error("No database connected");
-      const existing = this.selectAll(
-        "SELECT id FROM tbl_building WHERE slug = ?",
-        ["sample-hq"],
-      );
-      if (existing.length === 0) {
-        this.db.exec({
-          sql: "INSERT INTO tbl_building (name, slug, mailing_address) VALUES (?, ?, ?);",
-          bind: ["Sample HQ", "sample-hq", "123 Sample Way"],
-        });
-        this.db.exec({
-          sql: "INSERT INTO tbl_supernet (network, building_id) VALUES (?, last_insert_rowid());",
-          bind: ["10.0.0.0/16"],
-        });
-      }
-      this.notifyChange();
-      await this.persistCurrentDatabase({ silent: true });
+      // DEPRECATED: This method referenced tbl_building which was removed in M1.5.
+      // Building planner schema will be restored in PRD v5.
+      // For now, this is a no-op to avoid breaking existing UI button references.
+      console.warn('insertSampleBuilding() is deprecated and does nothing (M1.5 schema cleanup)');
     }
     listBuildings() {
-      return this.selectAll(
-        "SELECT id, name, slug, mailing_address FROM tbl_building ORDER BY id ASC;",
-      );
+      // DEPRECATED: This method referenced tbl_building which was removed in M1.5.
+      // Building planner schema will be restored in PRD v5.
+      return [];
     }
     async savePlannerSnapshot(snapshot) {
       await this.ensureReady();
@@ -810,10 +661,7 @@
         userVersion: hasDb ? this.getUserVersion() : 0,
         foreignKeys: hasDb ? this.getForeignKeyState() : 0,
         tables: hasDb ? this.listTables() : [],
-        buildingCount: hasDb
-          ? this.selectAll("SELECT COUNT(*) as total FROM tbl_building;")[0]
-              ?.total || 0
-          : 0,
+        buildingCount: 0, // tbl_building removed in M1.5
         fileHandleName: this.fileHandle?.name ?? null,
       };
     }

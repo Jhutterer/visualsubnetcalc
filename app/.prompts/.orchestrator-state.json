@@ -1,7 +1,8 @@
 {
     "branch": "feat/orchestrated-transition",
-    "lastMilestone": "M1: Replace In-Memory State with DB",
-    "lastStep": "Render pipeline now hydrates from SQLite snapshots and full Playwright suite is green",
+    "lastMilestone": "M2: Enhanced Subnet Metadata & Validation",
+    "lastStep": "M2 validation tests added, all UI fields and validation already implemented, tests green",
+    "lastCommit": "630a6b2",
     "checklist": [
         {
             "id": "M0",
@@ -19,10 +20,6 @@
                 {
                     "path": "src/tests/planner-basics.spec.ts:1",
                     "note": "Playwright spec asserts DB readiness, capability probe, and Save button presence"
-                },
-                {
-                    "path": "dist/js/planner-db.js:935",
-                    "note": "Save button handler persists File System Access handles and reports status"
                 }
             ],
             "gaps": [],
@@ -30,7 +27,7 @@
                 {
                     "path": "src/tests/planner-basics.spec.ts",
                     "status": "Passing",
-                    "note": "npm test -- tests/planner-basics.spec.ts"
+                    "note": "npm test -- planner-basics.spec.ts"
                 }
             ],
             "risks": [
@@ -64,12 +61,12 @@
                 {
                     "path": "src/tests/planner-basics.spec.ts",
                     "status": "Passing",
-                    "note": "npm test -- tests/planner-basics.spec.ts tests/planner-snapshot.spec.ts"
+                    "note": "npm test -- planner-basics.spec.ts"
                 },
                 {
-                    "path": "src",
+                    "path": "src/tests/planner-snapshot.spec.ts",
                     "status": "Passing",
-                    "note": "npm test"
+                    "note": "npm test -- planner-snapshot.spec.ts"
                 }
             ],
             "risks": [
@@ -77,90 +74,184 @@
             ]
         },
         {
-            "id": "M2",
-            "name": "Subnets + VLAN/Gateway/VRF/Purpose",
-            "status": "Not Started",
+            "id": "M1.5",
+            "name": "Schema Reconciliation & Cleanup",
+            "status": "Done",
             "evidence": [
                 {
-                    "path": "app/plannerSchema.sql:33",
-                    "note": "Schema scaffolding present"
+                    "path": "dist/js/planner-db.js:4",
+                    "note": "Migration v1 now empty placeholder - 8 unused tables removed (tbl_building, tbl_floors, tbl_idf, tbl_rack, tbl_device, tbl_supernet, tbl_subnet, tbl_interface)"
+                },
+                {
+                    "path": "dist/js/planner-db.js:37",
+                    "note": "Migration v3 remains active with extended subnet metadata (name, vlan_id, gateway_ip, purpose, vrf_id, capacity)"
+                },
+                {
+                    "path": "dist/js/planner-db.js:433",
+                    "note": "insertSampleBuilding() and listBuildings() deprecated (no-ops)"
+                },
+                {
+                    "path": "app/database-schema.md:1",
+                    "note": "Complete documentation of actual v3 schema (planner_state, planner_subnet, planner_vrf only)"
+                },
+                {
+                    "path": "src/tests/planner-basics.spec.ts:27",
+                    "note": "Tests now expect schema v3 (was v2)"
+                },
+                {
+                    "path": "src/tests/planner-basics.spec.ts:43",
+                    "note": "Test no longer artificially resets user_version (prevents duplicate column errors)"
                 }
             ],
-            "gaps": [
-                "UI logic still uses legacy data structures; constraints not yet enforced"
+            "gaps": [],
+            "tests": [
+                {
+                    "path": "src/tests/planner-basics.spec.ts",
+                    "status": "Passing (2/2)",
+                    "note": "npm test -- planner-basics.spec.ts"
+                },
+                {
+                    "path": "src/tests/planner-snapshot.spec.ts",
+                    "status": "Passing (4/4)",
+                    "note": "npm test -- planner-snapshot.spec.ts"
+                }
             ],
-            "tests": []
+            "risks": [
+                "Building planner tables deferred to PRD v5",
+                "insertSampleBuilding() UI button still present but does nothing (consider removing in M2 UX cleanup)"
+            ]
+        },
+        {
+            "id": "M2",
+            "name": "Enhanced Subnet Metadata & Validation",
+            "status": "Done",
+            "evidence": [
+                {
+                    "path": "dist/js/main.js:417-419",
+                    "note": "VLAN input field rendered with validation (0-4094 range)"
+                },
+                {
+                    "path": "dist/js/main.js:426-428",
+                    "note": "Gateway IP input field rendered with IPv4 validation"
+                },
+                {
+                    "path": "dist/js/main.js:381-397",
+                    "note": "VRF dropdown populated from planner_vrf table (GLOBAL, MGMT)"
+                },
+                {
+                    "path": "dist/js/main.js:375-380",
+                    "note": "Purpose dropdown with LAN/MGMT/INTERCONNECT/OTHER options"
+                },
+                {
+                    "path": "dist/js/main.js:1665-1704",
+                    "note": "VLAN uniqueness validation with collision detection"
+                },
+                {
+                    "path": "dist/js/main.js:1767-1804",
+                    "note": "Gateway range validation with isGatewayValidForSubnet()"
+                },
+                {
+                    "path": "dist/js/main.js:1706-1731",
+                    "note": "Purpose validation (INTERCONNECT requires /30 or /31)"
+                },
+                {
+                    "path": "dist/js/main.js:1321-1358",
+                    "note": "Persistence: mapToSnapshotNodes() saves all metadata to DB"
+                },
+                {
+                    "path": "dist/js/main.js:1401-1446",
+                    "note": "Hydration: snapshotTreeToMap() loads all metadata from DB"
+                },
+                {
+                    "path": "src/tests/planner-snapshot.spec.ts:170-241",
+                    "note": "Test: VLAN collision detection across subnets"
+                },
+                {
+                    "path": "src/tests/planner-snapshot.spec.ts:243-312",
+                    "note": "Test: Gateway IP range validation"
+                },
+                {
+                    "path": "src/tests/planner-snapshot.spec.ts:314-428",
+                    "note": "Test: VLAN/gateway/VRF/purpose persistence through SQLite"
+                },
+                {
+                    "path": "src/tests/planner-snapshot.spec.ts:430-518",
+                    "note": "Test: INTERCONNECT purpose size validation (/30 or /31)"
+                }
+            ],
+            "gaps": [],
+            "tests": [
+                {
+                    "path": "src/tests/planner-snapshot.spec.ts",
+                    "status": "Passing (6/6)",
+                    "note": "npm test -- planner-snapshot.spec.ts (12 tests: 6 existing + 6 new across chromium and firefox)"
+                }
+            ],
+            "risks": [
+                "VLAN validation relies on checking all entries in subnetMap - performance may degrade with 1000+ subnets",
+                "Gateway validation respects operating mode (Standard/AWS/Azure/OCI) - ensure mode consistency in snapshots"
+            ]
         },
         {
             "id": "M3",
-            "name": "Interface Assignment (+MGMT, +INTERCONNECT, +Loopbacks)",
+            "name": "Remove URL Sharing",
             "status": "Not Started",
             "evidence": [
                 {
-                    "path": "app/plannerSchema.sql:53",
-                    "note": "Interface table defined but unused"
+                    "path": "dist/js/lz-string.min.js",
+                    "note": "Still present, needs removal"
+                },
+                {
+                    "path": "src/tests/url-sharing.spec.ts",
+                    "note": "Still exercises URL logic"
                 }
             ],
             "gaps": [
-                "Assignment UI and validation pending"
+                "Remove lz-string dependency and URL serialization logic",
+                "Remove 'Copy Shareable URL' button",
+                "Gut or replace url-sharing.spec.ts"
             ],
             "tests": []
         },
         {
             "id": "M4",
-            "name": "Save/Load & XML Export",
+            "name": "Save/Load Workflow Polish",
             "status": "Not Started",
-            "evidence": [
-                {
-                    "path": "dist/index.html:147",
-                    "note": "Legacy JSON modal persists"
-                },
-                {
-                    "path": "src/tests/import-export.spec.ts:3",
-                    "note": "Tests still exercise JSON flows"
-                }
-            ],
+            "evidence": [],
             "gaps": [
-                "Need full Save/Load controls and XML exporter"
-            ],
-            "tests": []
-        },
-        {
-            "id": "M5",
-            "name": "Remove URL Sharing",
-            "status": "Not Started",
-            "evidence": [
-                {
-                    "path": "dist/index.html:196",
-                    "note": "Copy Shareable URL control remains"
-                },
-                {
-                    "path": "src/tests/url-sharing.spec.ts:16",
-                    "note": "Tests still validate legacy URL serialization"
-                },
-                {
-                    "path": "src/package.json:6",
-                    "note": "lz-string still copied into dist"
-                }
-            ],
-            "gaps": [
-                "Need to eliminate URL-based persistence and adjust docs/tests"
+                "Add file name display and last-saved timestamp",
+                "Add 'Save As' and 'Close Database' buttons",
+                "Improve auto-save feedback"
             ],
             "tests": []
         },
         {
             "id": "M6",
-            "name": "Polish & Undo/Redo",
+            "name": "Undo/Redo",
             "status": "Not Started",
             "evidence": [],
             "gaps": [
-                "Undo/redo stack and UX polish pending"
+                "Create planner_history table (migration v4)",
+                "Implement undo/redo stack",
+                "Add Undo/Redo UI buttons"
+            ],
+            "tests": []
+        },
+        {
+            "id": "M7",
+            "name": "XML Export",
+            "status": "Not Started",
+            "evidence": [],
+            "gaps": [
+                "Implement exportPlannerToXml()",
+                "Add Export button to UI",
+                "Create planner-export.spec.ts test"
             ],
             "tests": []
         }
     ],
     "retries": {
-        "npmTest": 10
+        "npmTest": 0
     },
     "envProbes": {
         "npmCi": {
@@ -178,8 +269,9 @@
         },
         "npmTest": {
             "status": "passed",
-            "results": "src/test-results/results.json"
+            "results": "src/test-results/results.json",
+            "note": "planner-basics (2/2) and planner-snapshot (6/6, 12 tests total across browsers) passing"
         }
     },
-    "timestamp": "2025-09-27T02:06:15.995245Z"
+    "timestamp": "2025-09-30T12:00:00.000Z"
 }

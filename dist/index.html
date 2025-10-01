@@ -163,6 +163,12 @@
             <p data-testid="db-status" class="fw-semibold">
               No planner database loaded
             </p>
+            <p id="db-filename" class="small mb-1" style="display:none;"></p>
+            <p id="db-last-saved" class="small text-muted mb-2" style="display:none;"></p>
+            <span id="db-saving-indicator" class="small text-muted" style="display:none;">
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              Saving...
+            </span>
             <div
               class="btn-toolbar gap-2 flex-wrap"
               role="toolbar"
@@ -188,11 +194,27 @@
               </button>
               <button
                 class="btn btn-outline-secondary"
+                id="db-save-as-btn"
+                type="button"
+                disabled
+              >
+                Save As...
+              </button>
+              <button
+                class="btn btn-outline-secondary"
                 id="db-export-btn"
                 type="button"
                 disabled
               >
                 Download Copy (.sqlite)
+              </button>
+              <button
+                class="btn btn-outline-secondary"
+                id="db-close-btn"
+                type="button"
+                disabled
+              >
+                Close Database
               </button>
               <button
                 class="btn btn-outline-secondary"

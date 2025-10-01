@@ -91,6 +91,7 @@
       this.mode = "uninitialized";
       this.sourceLabel = "";
       this.fileHandle = null;
+      this.lastSavedTimestamp = null;
       this._initPromise = null;
       this._listeners = new Set();
       this._managedPointers = [];
@@ -122,6 +123,16 @@
         typeof window.showOpenFilePicker === "function"
       );
     }
+    dispatchPlannerEvent(eventName, detail = {}) {
+      if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
+        return;
+      }
+      try {
+        window.dispatchEvent(new CustomEvent(eventName, { detail }));
+      } catch (err) {
+        console.warn(`PlannerDb failed to dispatch ${eventName} event`, err);
+      }
+    }
     releaseManagedPointers() {
       if (!this._managedPointers.length) {
         return;
@@ -147,6 +158,11 @@
         const bytes = new Uint8Array(this.exportDatabaseAsArray());
         await writable.write(bytes);
         await writable.close();
+        this.lastSavedTimestamp = new Date().toISOString();
+        this.dispatchPlannerEvent('planner-db:saved', {
+          timestamp: this.lastSavedTimestamp,
+          sourceLabel: this.sourceLabel
+        });
       } catch (err) {
         if (!silent) {
           throw err;
@@ -198,6 +214,38 @@
       } catch (err) {
         this.closeDatabase();
         this.fileHandle = null;
+        throw err;
+      }
+    }
+    async saveAs() {
+      if (!this.db) {
+        throw new Error("No database to save");
+      }
+      if (!this.supportsFileSystemAccess()) {
+        throw new Error("File System Access API is not available");
+      }
+      const handle = await window.showSaveFilePicker({
+        suggestedName: this.sourceLabel || "planner.sqlite",
+        types: [
+          {
+            description: "SQLite Database",
+            accept: {
+              "application/x-sqlite3": [".sqlite", ".db"],
+            },
+          },
+        ],
+      });
+      const oldHandle = this.fileHandle;
+      const oldLabel = this.sourceLabel;
+      this.fileHandle = handle;
+      this.sourceLabel = handle.name;
+      this.mode = "file-access";
+      try {
+        await this.persistToHandle(handle);
+        this.notifyChange();
+      } catch (err) {
+        this.fileHandle = oldHandle;
+        this.sourceLabel = oldLabel;
         throw err;
       }
     }
@@ -291,7 +339,12 @@
       }
       this.db = null;
       this.fileHandle = null;
+      this.sourceLabel = "";
+      this.lastSavedTimestamp = null;
+      this.mode = "ready";
       this.releaseManagedPointers();
+      this.dispatchPlannerEvent('planner-db:closed', {});
+      this.notifyChange();
     }
     afterOpen() {
       this.enableForeignKeys();
@@ -663,6 +716,7 @@
         tables: hasDb ? this.listTables() : [],
         buildingCount: 0, // tbl_building removed in M1.5
         fileHandleName: this.fileHandle?.name ?? null,
+        lastSavedTimestamp: this.lastSavedTimestamp,
       };
     }
     hasDatabase() {
@@ -692,12 +746,27 @@
     const createBtn = document.querySelector("#db-create-btn");
     const insertBtn = document.querySelector("#db-insert-sample-btn");
     const saveBtn = document.querySelector("#db-save-btn");
+    const saveAsBtn = document.querySelector("#db-save-as-btn");
+    const closeBtn = document.querySelector("#db-close-btn");
     const exportBtn = document.querySelector("#db-export-btn");
     const openBtn = document.querySelector("#db-open-btn");
     const fileInput = document.querySelector("#db-file-input");
     const feedbackEl = document.querySelector("#db-feedback");
+    const filenameEl = document.querySelector("#db-filename");
+    const lastSavedEl = document.querySelector("#db-last-saved");
+    const savingIndicatorEl = document.querySelector("#db-saving-indicator");
     const manager = new PlannerDbManager();
     window.plannerDbManager = manager;
+    const formatRelativeTime = (date) => {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      if (seconds < 60) return 'just now';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      const days = Math.floor(hours / 24);
+      return `${days} day${days !== 1 ? 's' : ''} ago`;
+    };
     const render = () => {
       const diag = manager.getDiagnostics();
       if (diag.hasDatabase) {
@@ -736,10 +805,36 @@
           });
         }
       }
+      // File name display
+      if (filenameEl) {
+        if (diag.hasDatabase && diag.sourceLabel) {
+          filenameEl.textContent = `File: ${diag.sourceLabel}`;
+          filenameEl.style.display = 'block';
+        } else {
+          filenameEl.style.display = 'none';
+        }
+      }
+      // Timestamp display
+      if (lastSavedEl) {
+        if (diag.hasDatabase && diag.lastSavedTimestamp) {
+          const relative = formatRelativeTime(new Date(diag.lastSavedTimestamp));
+          lastSavedEl.textContent = `Last saved: ${relative}`;
+          lastSavedEl.title = new Date(diag.lastSavedTimestamp).toLocaleString();
+          lastSavedEl.style.display = 'block';
+        } else {
+          lastSavedEl.style.display = 'none';
+        }
+      }
       exportBtn.disabled = !diag.hasDatabase;
       insertBtn.disabled = !diag.hasDatabase;
       if (saveBtn) {
         saveBtn.disabled = !(diag.hasDatabase && manager.fileHandle);
+      }
+      if (saveAsBtn) {
+        saveAsBtn.disabled = !diag.hasDatabase;
+      }
+      if (closeBtn) {
+        closeBtn.disabled = !diag.hasDatabase;
       }
     };
     const showFeedback = (message, type = "info") => {
@@ -811,6 +906,40 @@
         }
       });
     }
+    if (saveAsBtn) {
+      saveAsBtn.addEventListener("click", async () => {
+        try {
+          if (!manager.hasDatabase()) {
+            showFeedback("No database to save.", "error");
+            return;
+          }
+          await manager.saveAs();
+          showFeedback(`Planner database saved as ${manager.sourceLabel}.`);
+        } catch (err) {
+          if (err.name === 'AbortError') {
+            showFeedback("Save As cancelled.");
+            return;
+          }
+          console.error(err);
+          showFeedback("Unable to save database to new file.", "error");
+        }
+      });
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        if (!manager.hasDatabase()) return;
+        if (!confirm('Close the current database? Any unsaved changes will be lost.')) {
+          return;
+        }
+        try {
+          manager.closeDatabase();
+          showFeedback("Database closed.");
+        } catch (err) {
+          console.error(err);
+          showFeedback("Error closing database.", "error");
+        }
+      });
+    }
     insertBtn.addEventListener("click", async () => {
       try {
         await manager.insertSampleBuilding();
@@ -868,6 +997,16 @@
         console.error(err);
         showFeedback("Unable to load selected database.", "error");
       }
+    });
+    // Event listeners for save/close operations
+    window.addEventListener('planner-db:saved', () => {
+      render(); // Update timestamp display
+      if (savingIndicatorEl) {
+        savingIndicatorEl.style.display = 'none';
+      }
+    });
+    window.addEventListener('planner-db:closed', () => {
+      render(); // Reset UI to initial state
     });
     render();
   });

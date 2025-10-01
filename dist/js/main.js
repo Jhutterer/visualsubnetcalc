@@ -1451,6 +1451,11 @@ function schedulePlannerSnapshotPersist() {
         return;
     }
     plannerSnapshotPersistPending = true;
+    // Show saving indicator
+    const savingIndicator = document.querySelector('#db-saving-indicator');
+    if (savingIndicator) {
+        savingIndicator.style.display = 'inline';
+    }
     const run = async () => {
         try {
             await persistPlannerSnapshot();
@@ -1458,6 +1463,10 @@ function schedulePlannerSnapshotPersist() {
             console.warn('Planner snapshot scheduling failed', err);
         } finally {
             plannerSnapshotPersistPending = false;
+            // Hide saving indicator (also handled by planner-db:saved event)
+            if (savingIndicator) {
+                savingIndicator.style.display = 'none';
+            }
         }
     };
     if (typeof queueMicrotask === 'function') {

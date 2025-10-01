@@ -1,8 +1,8 @@
 {
     "branch": "feat/orchestrated-transition",
-    "lastMilestone": "M4: Save/Load Workflow Polish (retroactive)",
-    "lastStep": "M4 verified complete (commit bcd2143) - file name display, last saved timestamp, Save As, Close Database all functional, 96/104 tests passing (8 pre-existing failures)",
-    "lastCommit": "bcd2143",
+    "lastMilestone": "M7: XML Export",
+    "lastStep": "M7 complete - XML export with deterministic ordering, VRF name resolution, comprehensive escaping, 16 new tests passing, 112/120 total (8 pre-existing failures)",
+    "lastCommit": "ea75d42",
     "checklist": [
         {
             "id": "M0",
@@ -403,14 +403,46 @@
         {
             "id": "M7",
             "name": "XML Export",
-            "status": "Not Started",
-            "evidence": [],
-            "gaps": [
-                "Implement exportPlannerToXml()",
-                "Add Export button to UI",
-                "Create planner-export.spec.ts test"
+            "status": "Done",
+            "evidence": [
+                {
+                    "path": "dist/index.html:211-218",
+                    "note": "Export to XML button (db-export-xml-btn) added to planner database panel"
+                },
+                {
+                    "path": "dist/js/main.js:1286-1425",
+                    "note": "exportPlannerToXml() function with comprehensive XML generation, escaping, and VRF name resolution"
+                },
+                {
+                    "path": "dist/js/main.js:1428-1430",
+                    "note": "Function exposed on window object for cross-file access"
+                },
+                {
+                    "path": "dist/js/planner-db.js:848-851",
+                    "note": "XML export button enable/disable logic in render() function"
+                },
+                {
+                    "path": "dist/js/planner-db.js:987-1007",
+                    "note": "XML export button click handler with error handling and user feedback"
+                },
+                {
+                    "path": "src/tests/planner-export.spec.ts:1-470",
+                    "note": "Comprehensive E2E test suite with 8 test scenarios (16 tests across chromium and firefox)"
+                }
             ],
-            "tests": []
+            "gaps": [],
+            "tests": [
+                {
+                    "path": "src/tests/planner-export.spec.ts",
+                    "status": "16/16 passing",
+                    "note": "Tests validate: XML structure, data integrity, escaping, null handling, deterministic ordering, edge cases"
+                },
+                {
+                    "path": "npm test",
+                    "status": "112/120 passing",
+                    "note": "16 new passing tests added for M7, 8 pre-existing failures unchanged"
+                }
+            ]
         }
     ],
     "retries": {
@@ -436,5 +468,5 @@
             "note": "80/96 passing, 2 skipped, 14 failing (pre-existing failures from 630a6b2)"
         }
     },
-    "timestamp": "2025-10-01T14:00:00.000Z"
+    "timestamp": "2025-10-01T15:00:00.000Z"
 }

@@ -118,6 +118,135 @@ Invoke Test Fixer Agent (attempt 1)
 1. **Agents read incrementally:** Grep before Read, targeted line ranges only
 2. **Orchestrator caches state:** Maintain `.orchestrator-state.json` with last commit, last test results, known issues
 3. **Lazy agent invocation:** Don't invoke Schema Manager unless schema changes needed
+
+## Context Efficiency Protocol (PRD v4.1+)
+
+**Problem:** Large PRDs (10-30k tokens) consume excessive context, leaving less room for code/tests/agent collaboration.
+
+**Solution:** Modular PRD with lazy-loaded implementation guides.
+
+### PRD Loading Strategy
+
+**Pattern:** Load core PRD + milestone-specific guide only
+
+```
+Step 1: Load PRD core
+  File: app/.prompts/BuildingProject.PRD.v4.1.md
+  Token cost: ~3k
+  Contains: Executive summary, milestone list, success metrics
+
+Step 2: Identify current milestone
+  Parse: Which milestone (M1, M2, M3, etc.)
+  Example: "M2 - Test Infrastructure Overhaul"
+
+Step 3: Load ONLY relevant guide
+  Map milestone to guide:
+    M1 → guides/documentation-standards.md (~3k tokens)
+    M2 → guides/test-infrastructure.md (~4k tokens)
+    M3 → guides/code-quality-setup.md (~3k tokens)
+    M4 → guides/observability-setup.md (~3k tokens)
+    M5 → guides/agent-coordination.md (~3k tokens)
+    M6 → guides/workflow-automation.md (~3k tokens)
+
+Step 4: Total context for milestone
+  PRD core (~3k) + Guide (~3-4k) = ~6-7k tokens
+  Savings: 80% vs monolithic PRD (30k tokens)
+```
+
+### Guide Catalog Reference
+
+See: `app/.prompts/guides/README.md` for complete guide index
+
+| Guide | Milestone | Load When |
+|-------|-----------|-----------|
+| documentation-standards.md | M1 | Adding JSDoc, ADRs, file headers |
+| test-infrastructure.md | M2 | Creating test factories, selectors |
+| code-quality-setup.md | M3 | Setting up ESLint, Prettier |
+| observability-setup.md | M4 | Adding logging, diagnostics |
+| agent-coordination.md | M5 | Proposal validation, consistency checks |
+| workflow-automation.md | M6 | Pre-commit hooks, CI/CD |
+
+### Example: M2 Workflow with Lazy Loading
+
+```
+1. Orchestrator reads PRD v4.1 core (~3k tokens)
+   - Identifies M2: "Test Infrastructure Overhaul"
+   - Goal: Eliminate inline test data and brittle selectors
+
+2. Orchestrator loads guides/test-infrastructure.md (~4k tokens)
+   - Contains: Test factory patterns, selector patterns, examples
+   - Does NOT load: M1, M3-M6 guides (saves ~15k tokens)
+
+3. Orchestrator invokes src agent with guide context
+   - Agent reads guide, implements test-data-factory.ts
+   - Agent creates selectors.ts
+   - Agent refactors existing tests
+
+4. Total PRD context used: ~7k tokens (vs 30k for monolithic)
+   - Remaining context: 193k for code, tests, agent collaboration
+```
+
+### Validation Workflow Enhancement (PRD v4.1 M5)
+
+**New agents added in v4.1:**
+- **Proposal Validator Agent** (`app/.prompts/proposal-validator.Agent.md`)
+  - Pre-validates proposals before application
+  - Checks schema consistency, test coverage, breaking changes
+  - Risk assessment and approval recommendation
+
+**Enhanced decision tree:**
+
+```
+Milestone Start
+  ↓
+Load PRD v4.1 core (~3k)
+  ↓
+Load milestone guide (~3-4k)
+  ↓
+Invoke Proposal Validator Agent (if v4.1 M5+)
+  ↓
+Invoke specialized agents (dist/src/schema)
+  ↓
+Receive proposals
+  ↓
+Proposal Validator validates (if v4.1 M5+)
+  ↓ APPROVED → Consistency check
+  ↓ NEEDS_REVISION → Request revisions (max 2 rounds)
+  ↓ REJECTED → Escalate
+  ↓
+Run consistency-check.js (if v4.1 M5+)
+  ↓ PASS → Apply patches
+  ↓ FAIL → Auto-fix or escalate
+  ↓
+Run quality-check.sh (if v4.1 M3+)
+  ↓ PASS → Run tests
+  ↓ FAIL → Auto-fix or escalate
+  ↓
+Tests
+  ↓ PASS → Commit
+  ↓ FAIL → Test Fixer Agent
+```
+
+### Token Budget Tracking
+
+Maintain in `.orchestrator-state.json`:
+
+```json
+{
+  "branch": "feat/code-quality-foundation",
+  "prd": "v4.1",
+  "currentMilestone": "M2",
+  "tokenUsage": {
+    "prdCore": 3000,
+    "guideLoaded": "test-infrastructure.md",
+    "guideTokens": 4000,
+    "totalPrdContext": 7000,
+    "percentOfWindow": "3.5%"
+  },
+  "lastCommit": "abc1234",
+  "timestamp": "2025-10-01T12:00:00Z"
+}
+```
 4. **Parallel execution:** When M2 needs dist + src changes with no overlap, invoke both agents simultaneously
 5. **Batch commits:** Group related changes (e.g., "feat(schema): add VRF + tests + docs") rather than micro-commits
 

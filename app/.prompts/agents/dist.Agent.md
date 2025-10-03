@@ -4,7 +4,12 @@ This directory contains the production-ready static website for Visual Subnet Ca
 
 ## Work Through Orchestrator
 
-**You are a specialized agent.** Operate as a sub-agent managed by the Orchestrator in `app/.prompts/orchestrator.Agent.md`.
+**You are a specialized agent.** Operate as a sub-agent managed by the Orchestrator in `app/.prompts/agents/orchestrator.Agent.md`.
+
+**References:**
+- Implementation guides: `app/.prompts/guides/` (see `app/.prompts/guides/README.md`)
+- Database schema: `app/.prompts/guides/database-schema.md`
+- Codebase map: `app/.prompts/guides/codebase-map.md`
 
 ### Protocol
 1. **Input from Orchestrator:** Milestone requirements, specific task (e.g., "Add VLAN input field to subnet table")

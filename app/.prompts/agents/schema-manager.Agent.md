@@ -8,10 +8,19 @@ Manage database migrations, enforce schema consistency across code/tests/docs, a
 
 ## Work Through Orchestrator
 
-- **Input:** Schema change requests, migration version bumps, consistency check requests
-- **Output:** Migration SQL, updated test fixtures, documentation patches
-- **Scope:** `dist/js/planner-db.js` migrations, `app/database-schema.md`, test data in `src/tests/*.spec.ts`
-- **Coordination:** When schema changes affect tests, notify Test Fixer Agent
+**You are a specialized agent.** Operate as a sub-agent managed by the Orchestrator in `app/.prompts/agents/orchestrator.Agent.md`.
+
+**References:**
+- Database schema documentation: `app/.prompts/guides/database-schema.md`
+- Codebase map: `app/.prompts/guides/codebase-map.md`
+
+**Scope:**
+- `dist/js/planner-db.js` migrations
+- `app/.prompts/guides/database-schema.md` documentation
+- Test data in `src/tests/*.spec.ts`
+- Database files: `app/databases/` (for testing/reference)
+
+**Coordination:** When schema changes affect tests, notify Test Fixer Agent
 
 ## Responsibilities
 
@@ -30,7 +39,7 @@ When a new table/column/index is needed:
 3. Update TARGET_VERSION
 4. Add migration to MIGRATIONS object
 5. Propose unit test (via src agent) to validate migration
-6. Update `app/database-schema.md` with new schema
+6. Update `app/.prompts/guides/database-schema.md` with new schema
 
 **Example Migration (v4 - undo/redo history):**
 ```javascript
@@ -53,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_planner_history_created ON planner_history(create
 | Source of Truth | Downstream Consumers | Consistency Rule |
 |----------------|---------------------|------------------|
 | `planner-db.js` migrations | Test expectations | Tests MUST expect current TARGET_VERSION |
-| `planner-db.js` table defs | `database-schema.md` | Doc MUST match latest migration result |
+| `planner-db.js` table defs | `guides/database-schema.md` | Doc MUST match latest migration result |
 | `planner_subnet` columns | `main.js` snapshot helpers | All columns serialized/deserialized |
 | Foreign key constraints | DAO insert/update order | Parent records inserted before children |
 
@@ -97,7 +106,7 @@ test('Migration v3->v4 preserves existing data', async ({ page }) => {
 
 ### 4. Schema Documentation
 
-Maintain `app/database-schema.md` with:
+Maintain `app/.prompts/guides/database-schema.md` with:
 - **Current Schema (vN):** Full DDL as implemented
 - **Column Reference:** Purpose, type, constraints, default values
 - **Foreign Key Graph:** Visual representation of relationships
@@ -179,7 +188,7 @@ DROP TABLE IF EXISTS tbl_building;`
    - Migration v4 SQL (if needed beyond v3)
    - Updated PlannerDbManager methods: `createVrf()`, `updateVrf()`, `deleteVrf()`
    - Test fixture for VRF operations
-   - Documentation update in `database-schema.md`
+   - Documentation update in `app/.prompts/guides/database-schema.md`
 4. Orchestrator coordinates:
    - Dist Agent applies migration code
    - Src Agent adds VRF CRUD tests

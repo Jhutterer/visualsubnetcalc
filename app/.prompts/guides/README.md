@@ -8,12 +8,14 @@
 
 | Guide | Milestone | Token Cost | Purpose |
 |-------|-----------|------------|---------|
+| **codebase-map.md** | All | ~2k | Navigation map for agents to locate code quickly |
 | **documentation-standards.md** | M1 | ~3k | JSDoc patterns, ADRs, file headers, agent annotations |
 | **test-infrastructure.md** | M2 | ~4k | Test factories, selectors, visual regression, snapshots |
 | **code-quality-setup.md** | M3 | ~3k | ESLint, Prettier, quality gates, type checking |
 | **observability-setup.md** | M4 | ~3k | Structured logging, diagnostic dashboard |
 | **agent-coordination.md** | M5 | ~3k | Proposal validation, consistency checking |
 | **workflow-automation.md** | M6 | ~3k | Pre-commit hooks, CI/CD, automation |
+| **database-schema.md** | M7+ | ~3k | SQLite schema reference (v4), planner database structure |
 
 ## Orchestrator Usage Pattern
 
@@ -31,8 +33,12 @@ const guideMap = {
   'M3': 'guides/code-quality-setup.md',
   'M4': 'guides/observability-setup.md',
   'M5': 'guides/agent-coordination.md',
-  'M6': 'guides/workflow-automation.md'
+  'M6': 'guides/workflow-automation.md',
+  'M7+': 'guides/database-schema.md'
 };
+
+// Codebase map is always available to all agents
+const codebaseMap = await readFile('app/.prompts/guides/codebase-map.md');
 
 const guide = await readFile(`app/.prompts/${guideMap[currentMilestone]}`);
 
@@ -145,6 +151,7 @@ See [Code Quality Setup](code-quality-setup.md) for ESLint test file configurati
 
 | Task | Load Guide(s) |
 |------|---------------|
+| Locate code/files | codebase-map.md |
 | Add JSDoc annotations | documentation-standards.md |
 | Create test factory | test-infrastructure.md |
 | Setup ESLint | code-quality-setup.md |
@@ -155,8 +162,10 @@ See [Code Quality Setup](code-quality-setup.md) for ESLint test file configurati
 | Create visual regression test | test-infrastructure.md |
 | Add performance benchmark | test-infrastructure.md |
 | Setup CI/CD pipeline | workflow-automation.md |
+| Understand database schema | database-schema.md |
+| Add database migrations | database-schema.md |
 
 ---
 
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-02
 **Maintainer:** Update when adding/modifying guides

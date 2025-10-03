@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm test)",
       "Bash(npm test:*)",
-      "Bash(npm run local-secure-start:*)"
+      "Bash(npm run local-secure-start:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

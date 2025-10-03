@@ -36,10 +36,11 @@ Artifacts per run:
 
 ### Agent Roster
 
-1. **src Agent** (`app/.prompts/src.Agent.md`): Owns `src/**` (tests, build scripts, Playwright config)
-2. **dist Agent** (`app/.prompts/dist.Agent.md`): Owns `dist/**` (HTML/JS/CSS runtime code)
-3. **Schema Manager Agent** (`app/.prompts/schema-manager.Agent.md`): Manages SQLite migrations, schema consistency, documentation
-4. **Test Fixer Agent** (`app/.prompts/test-fixer.Agent.md`): Autonomous test failure diagnosis and surgical fixes
+1. **src Agent** (`app/.prompts/agents/src.Agent.md`): Owns `src/**` (tests, build scripts, Playwright config)
+2. **dist Agent** (`app/.prompts/agents/dist.Agent.md`): Owns `dist/**` (HTML/JS/CSS runtime code)
+3. **Schema Manager Agent** (`app/.prompts/agents/schema-manager.Agent.md`): Manages SQLite migrations, schema consistency, documentation
+4. **Test Fixer Agent** (`app/.prompts/agents/test-fixer.Agent.md`): Autonomous test failure diagnosis and surgical fixes
+5. **Proposal Validator Agent** (`app/.prompts/agents/proposal-validator.Agent.md`): Pre-application validation of agent proposals for consistency and risk assessment
 
 ### Orchestrator Role
 
@@ -113,11 +114,19 @@ Invoke Test Fixer Agent (attempt 1)
   ↓ Confidence LOW → Escalate to human immediately
 ```
 
+### Directory Structure
+
+- **Agent specs:** `app/.prompts/agents/*.md`
+- **Implementation guides:** `app/.prompts/guides/*.md` (see `app/.prompts/guides/README.md` for catalog)
+- **Orchestrator state:** `app/.prompts/agents/state/` (`.orchestrator-state.json`, `.orchestrator-notes.md`)
+- **Database files:** `app/databases/` (SQLite files for testing/reference)
+
 ### Context Efficiency Rules
 
 1. **Agents read incrementally:** Grep before Read, targeted line ranges only
-2. **Orchestrator caches state:** Maintain `.orchestrator-state.json` with last commit, last test results, known issues
+2. **Orchestrator caches state:** Maintain `app/.prompts/agents/state/.orchestrator-state.json` with last commit, last test results, known issues
 3. **Lazy agent invocation:** Don't invoke Schema Manager unless schema changes needed
+4. **Modular guides:** Load only milestone-relevant implementation guides from `app/.prompts/guides/`
 
 ## Context Efficiency Protocol (PRD v4.1+)
 
@@ -229,7 +238,7 @@ Tests
 
 ### Token Budget Tracking
 
-Maintain in `.orchestrator-state.json`:
+Maintain in `app/.prompts/agents/state/.orchestrator-state.json`:
 
 ```json
 {
@@ -253,7 +262,7 @@ Maintain in `.orchestrator-state.json`:
 ## Workflow (per milestone)
 
 ### Phase 1: Planning (Orchestrator)
-1. Load `.orchestrator-state.json` and `BuildingProject.PRD.v4.md`
+1. Load `app/.prompts/agents/state/.orchestrator-state.json` and `app/.prompts/BuildingProject.PRD.v4.md`
 2. Parse current milestone requirements and acceptance criteria
 3. Identify affected agents: dist, src, schema-manager, test-fixer
 4. Check for schema changes → if yes, invoke Schema Manager first for migration proposal
@@ -279,8 +288,8 @@ Maintain in `.orchestrator-state.json`:
 13. **If tests PASS:**
     - Stage changes: `git add [changed files]`
     - Commit with conventional commit message
-    - Update `.orchestrator-state.json` with success
-    - Update `.orchestrator-notes.md` with evidence
+    - Update `app/.prompts/agents/state/.orchestrator-state.json` with success
+    - Update `app/.prompts/agents/state/.orchestrator-notes.md` with evidence
     - Proceed to next milestone
 14. **If tests FAIL:**
     - Invoke Test Fixer Agent with failure output
@@ -299,7 +308,7 @@ Maintain in `.orchestrator-state.json`:
     - PAUSE until human input received
 
 ### Phase 5: State Persistence (Orchestrator)
-16. Update `.orchestrator-state.json`:
+16. Update `app/.prompts/agents/state/.orchestrator-state.json`:
 ```json
 {
   "branch": "feat/orchestrated-transition",
@@ -312,7 +321,7 @@ Maintain in `.orchestrator-state.json`:
   "timestamp": "2025-09-29T12:00:00Z"
 }
 ```
-17. Append to `.orchestrator-notes.md` with milestone completion evidence
+17. Append to `app/.prompts/agents/state/.orchestrator-notes.md` with milestone completion evidence
 
 ## Milestones
 
@@ -442,8 +451,19 @@ Examples (for future PRD items):
 - Atomic Conventional Commits; rebase regularly
 - No squash until final merge; preserve useful history
 
+## Implementation Guides Reference
+
+All agents have access to modular implementation guides in `app/.prompts/guides/`. See `app/.prompts/guides/README.md` for the complete catalog.
+
+**Key guides:**
+- `codebase-map.md` - Code location reference (always available)
+- `database-schema.md` - SQLite schema v4 reference
+- Milestone-specific guides (M1-M6) - Loaded on-demand per milestone
+
+**Usage:** Load PRD core + relevant guide only to minimize token usage (80% reduction vs monolithic PRD)
+
 ## Next Steps
-- Provide `BuildingProject.PRD.v3.md`, `src.Agent.md`, `dist.Agent.md`
+- Provide `BuildingProject.PRD.v4.md`, agent specs from `app/.prompts/agents/`
 - Complete Milestone 0 (commit this file), then proceed to Milestone 1
 - Expand Milestone 3+ from the PRD
 

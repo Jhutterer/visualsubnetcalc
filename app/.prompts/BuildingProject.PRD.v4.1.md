@@ -51,7 +51,7 @@ The v4 implementation revealed agent challenges:
 4. Total context: ~7k tokens (vs 30k for monolithic PRD)
 5. **80% token savings**
 
-See: `app/.prompts/guides/README.md` for guide catalog and usage patterns.
+See: `app/.prompts/guides/README.md` for complete guide catalog and usage patterns.
 
 ## Milestones
 
@@ -62,9 +62,9 @@ See: `app/.prompts/guides/README.md` for guide catalog and usage patterns.
 - JSDoc `@agent-*` annotations on all major functions
 - File-level architecture headers
 - Create ADRs 001-006 in `app/adr/`
-- Agents work from existing `codebase-map.md`
+- Agents work from existing `app/.prompts/guides/codebase-map.md`
 
-**Implementation:** See `guides/documentation-standards.md`
+**Implementation:** See `app/.prompts/guides/documentation-standards.md`
 
 **Acceptance:**
 - 100% of public functions have `@agent-summary`
@@ -86,7 +86,7 @@ See: `app/.prompts/guides/README.md` for guide catalog and usage patterns.
 - Add data structure snapshot tests
 - Add performance benchmarks
 
-**Implementation:** See `guides/test-infrastructure.md`
+**Implementation:** See `app/.prompts/guides/test-infrastructure.md`
 
 **Acceptance:**
 - Zero inline test data in specs
@@ -108,7 +108,7 @@ See: `app/.prompts/guides/README.md` for guide catalog and usage patterns.
 - Create `quality-check.sh` script
 - Fix existing lint warnings (target: <10)
 
-**Implementation:** See `guides/code-quality-setup.md`
+**Implementation:** See `app/.prompts/guides/code-quality-setup.md`
 
 **Acceptance:**
 - `npm run lint` passes with <10 warnings
@@ -128,7 +128,7 @@ See: `app/.prompts/guides/README.md` for guide catalog and usage patterns.
 - Integrate Logger into main.js (state mutations, validations, errors)
 - Replace console.log with categorized logging
 
-**Implementation:** See `guides/observability-setup.md`
+**Implementation:** See `app/.prompts/guides/observability-setup.md`
 
 **Acceptance:**
 - All state mutations logged
@@ -144,13 +144,13 @@ See: `app/.prompts/guides/README.md` for guide catalog and usage patterns.
 **Goal:** Proposal validation and consistency checking
 
 **Tasks:**
-- Ensure Proposal Validator Agent exists (`proposal-validator.Agent.md`)
+- Ensure Proposal Validator Agent exists (`app/.prompts/agents/proposal-validator.Agent.md`)
 - Create `consistency-check.js` script
 - Update orchestrator with validation workflow
 - Test validation with sample proposals
 
-**Implementation:** See `guides/agent-coordination.md`
-**Reference:** `app/.prompts/proposal-validator.Agent.md` (standalone spec)
+**Implementation:** See `app/.prompts/guides/agent-coordination.md`
+**Reference:** `app/.prompts/agents/proposal-validator.Agent.md` (standalone spec)
 
 **Acceptance:**
 - Consistency checker detects all drift patterns
@@ -171,7 +171,7 @@ See: `app/.prompts/guides/README.md` for guide catalog and usage patterns.
 - Configure automated test runs
 - Add performance regression detection
 
-**Implementation:** See `guides/workflow-automation.md`
+**Implementation:** See `app/.prompts/guides/workflow-automation.md`
 
 **Acceptance:**
 - Pre-commit hooks prevent drift
@@ -253,7 +253,7 @@ Load PRD v4.1 core (~3k tokens)
   ↓
 Identify milestone (e.g., M2)
   ↓
-Load guides/test-infrastructure.md (~4k tokens)
+Load app/.prompts/guides/test-infrastructure.md (~4k tokens)
   ↓
 Invoke Proposal Validator Agent
   ↓
@@ -277,7 +277,7 @@ Tests
   ↓ FAIL → Test Fixer Agent
 ```
 
-See: `app/.prompts/orchestrator.Agent.md` (updated with context efficiency protocol)
+See: `app/.prompts/agents/orchestrator.Agent.md` (updated with context efficiency protocol)
 
 ## File Structure After v4.1
 
@@ -287,12 +287,20 @@ visualsubnetcalc/
 │   ├── .prompts/
 │   │   ├── BuildingProject.PRD.v4.md
 │   │   ├── BuildingProject.PRD.v4.1.md (this file, slim)
-│   │   ├── orchestrator.Agent.md (updated)
-│   │   ├── dist.Agent.md, src.Agent.md, schema-manager.Agent.md, test-fixer.Agent.md
-│   │   ├── proposal-validator.Agent.md (new)
-│   │   ├── codebase-map.md (existing)
-│   │   └── guides/ (new)
-│   │       ├── README.md (index)
+│   │   ├── agents/
+│   │   │   ├── orchestrator.Agent.md (updated)
+│   │   │   ├── dist.Agent.md (updated)
+│   │   │   ├── src.Agent.md (updated)
+│   │   │   ├── schema-manager.Agent.md (updated)
+│   │   │   ├── test-fixer.Agent.md (updated)
+│   │   │   ├── proposal-validator.Agent.md (updated)
+│   │   │   └── state/
+│   │   │       ├── .orchestrator-state.json (runtime)
+│   │   │       └── .orchestrator-notes.md (runtime)
+│   │   └── guides/
+│   │       ├── README.md (index, updated)
+│   │       ├── codebase-map.md (existing)
+│   │       ├── database-schema.md (existing, updated)
 │   │       ├── documentation-standards.md (~3k tokens)
 │   │       ├── test-infrastructure.md (~4k tokens)
 │   │       ├── code-quality-setup.md (~3k tokens)
@@ -306,7 +314,7 @@ visualsubnetcalc/
 │   │   ├── 004-playwright-e2e-testing.md
 │   │   ├── 005-agent-orchestration.md
 │   │   └── 006-schema-migration-strategy.md
-│   └── database-schema.md
+│   └── databases/ (SQLite files for testing/reference)
 ├── dist/
 │   ├── diagnostic.html (new, M4)
 │   ├── js/
@@ -355,8 +363,11 @@ visualsubnetcalc/
 - Orchestrator loads ONLY what's needed
 
 **Need code navigation?**
-- See `codebase-map.md` for function locations
+- See `app/.prompts/guides/codebase-map.md` for function locations
 - Grep before reading files (saves 70% context)
+
+**Need schema reference?**
+- See `app/.prompts/guides/database-schema.md` for SQLite schema v4
 
 **Need architectural context?**
 - See ADRs in `app/adr/` (created in M1)
